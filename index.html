@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Content Brain — Michel Eid</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <h1>Content Brain</h1>
+      <p class="subtitle">Michel Eid · LinkedIn pipeline · 4-pillar rotation</p>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-tab="capture" role="tab">Capture</button>
+      <button class="tab" data-tab="pipeline" role="tab">Pipeline</button>
+      <button class="tab" data-tab="calendar" role="tab">Kalender</button>
+      <button class="tab" data-tab="archive" role="tab">Arkiv</button>
+    </nav>
+  </header>
+
+  <main class="content">
+
+    <!-- ========================================== CAPTURE ========================================== -->
+    <section id="capture" class="panel active">
+      <div class="panel-head">
+        <h2>Capture</h2>
+        <p class="muted">Fang en idé. Hold den kort. Ordne den senere.</p>
+      </div>
+
+      <form id="capture-form" class="capture-form">
+        <input type="text" id="capture-title" placeholder="Tittel eller hook…" autocomplete="off" required />
+        <textarea id="capture-body" rows="5" placeholder="Anekdote → refleksjon → landing.&#10;Eller bare tre stikkord."></textarea>
+        <div class="capture-meta">
+          <label>
+            <span>Pilar</span>
+            <select id="capture-pillar">
+              <option value="1">1 · Connective leadership</option>
+              <option value="2">2 · Familie & hockey</option>
+              <option value="3">3 · Bygger & lærer</option>
+              <option value="4">4 · Krysspollinering</option>
+              <option value="">— ikke valgt —</option>
+            </select>
+          </label>
+          <label>
+            <span>Status</span>
+            <select id="capture-status">
+              <option value="idea">Idé</option>
+              <option value="draft">Draft</option>
+              <option value="ready">Klar</option>
+            </select>
+          </label>
+          <label class="grow">
+            <span>Kilde (URL eller referanse)</span>
+            <input type="text" id="capture-source" placeholder="valgfritt" />
+          </label>
+          <button type="submit" class="primary">Lagre</button>
+        </div>
+      </form>
+
+      <div class="capture-recent">
+        <div class="row-between">
+          <h3>Sist lagt til</h3>
+          <span class="muted small" id="capture-count"></span>
+        </div>
+        <ul id="capture-list" class="card-list"></ul>
+      </div>
+    </section>
+
+    <!-- ========================================== PIPELINE ========================================== -->
+    <section id="pipeline" class="panel">
+      <div class="panel-head">
+        <h2>Pipeline</h2>
+        <p class="muted">Fra idé til klar-til-publisering.</p>
+      </div>
+
+      <div class="filters">
+        <div class="filter-group">
+          <label>Pilar</label>
+          <div class="chips" id="pipeline-pillar-filter">
+            <button class="chip active" data-pillar="all">Alle</button>
+            <button class="chip" data-pillar="1"><span class="dot p1"></span>1</button>
+            <button class="chip" data-pillar="2"><span class="dot p2"></span>2</button>
+            <button class="chip" data-pillar="3"><span class="dot p3"></span>3</button>
+            <button class="chip" data-pillar="4"><span class="dot p4"></span>4</button>
+          </div>
+        </div>
+        <div class="filter-group grow">
+          <label>Søk</label>
+          <input type="text" id="pipeline-search" placeholder="tittel eller tekst…" />
+        </div>
+      </div>
+
+      <div class="pipeline-board">
+        <div class="lane" data-status="idea">
+          <h3>Idé <span class="lane-count" id="count-idea">0</span></h3>
+          <ul class="card-list" id="lane-idea"></ul>
+        </div>
+        <div class="lane" data-status="draft">
+          <h3>Draft <span class="lane-count" id="count-draft">0</span></h3>
+          <ul class="card-list" id="lane-draft"></ul>
+        </div>
+        <div class="lane" data-status="ready">
+          <h3>Klar <span class="lane-count" id="count-ready">0</span></h3>
+          <ul class="card-list" id="lane-ready"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== CALENDAR ========================================== -->
+    <section id="calendar" class="panel">
+      <div class="panel-head">
+        <h2>Kalender</h2>
+        <p class="muted">Ett innlegg i uken. Pilar-rotasjon 1 → 2 → 3 → 4.</p>
+      </div>
+
+      <div class="calendar-controls">
+        <label>
+          <span>Denne ukens pilar</span>
+          <select id="rotation-anchor">
+            <option value="1">1 · Connective leadership</option>
+            <option value="2">2 · Familie & hockey</option>
+            <option value="3">3 · Bygger & lærer</option>
+            <option value="4">4 · Krysspollinering</option>
+          </select>
+        </label>
+        <span class="muted small">Endringer lagres automatisk</span>
+      </div>
+
+      <ul class="calendar-list" id="calendar-list"></ul>
+    </section>
+
+    <!-- ========================================== ARCHIVE ========================================== -->
+    <section id="archive" class="panel">
+      <div class="panel-head">
+        <h2>Arkiv</h2>
+        <p class="muted">Publiserte innlegg, nyeste først.</p>
+      </div>
+
+      <div class="filters">
+        <div class="filter-group">
+          <label>Pilar</label>
+          <div class="chips" id="archive-pillar-filter">
+            <button class="chip active" data-pillar="all">Alle</button>
+            <button class="chip" data-pillar="1"><span class="dot p1"></span>1</button>
+            <button class="chip" data-pillar="2"><span class="dot p2"></span>2</button>
+            <button class="chip" data-pillar="3"><span class="dot p3"></span>3</button>
+            <button class="chip" data-pillar="4"><span class="dot p4"></span>4</button>
+          </div>
+        </div>
+      </div>
+
+      <ul id="archive-list" class="card-list"></ul>
+    </section>
+
+  </main>
+
+  <!-- Edit modal -->
+  <div class="modal-backdrop" id="modal-backdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true">
+      <header>
+        <h3 id="modal-title">Rediger</h3>
+        <button class="iconbtn" id="modal-close" aria-label="Lukk">×</button>
+      </header>
+      <form id="edit-form">
+        <input type="hidden" id="edit-id" />
+        <label>
+          <span>Tittel</span>
+          <input type="text" id="edit-title" required />
+        </label>
+        <label>
+          <span>Kropp</span>
+          <textarea id="edit-body" rows="12"></textarea>
+        </label>
+        <div class="grid-3">
+          <label>
+            <span>Pilar</span>
+            <select id="edit-pillar">
+              <option value="1">1 · Leadership</option>
+              <option value="2">2 · Familie & hockey</option>
+              <option value="3">3 · Bygger & lærer</option>
+              <option value="4">4 · Krysspollinering</option>
+              <option value="">—</option>
+            </select>
+          </label>
+          <label>
+            <span>Status</span>
+            <select id="edit-status">
+              <option value="idea">Idé</option>
+              <option value="draft">Draft</option>
+              <option value="ready">Klar</option>
+              <option value="scheduled">Planlagt</option>
+              <option value="published">Publisert</option>
+            </select>
+          </label>
+          <label>
+            <span>Planlagt dato</span>
+            <input type="date" id="edit-scheduled" />
+          </label>
+        </div>
+        <div class="grid-2">
+          <label>
+            <span>Publisert dato</span>
+            <input type="date" id="edit-published" />
+          </label>
+          <label>
+            <span>LinkedIn URL</span>
+            <input type="url" id="edit-linkedin" placeholder="https://…" />
+          </label>
+        </div>
+        <label>
+          <span>Kilde / referanse</span>
+          <input type="text" id="edit-source" />
+        </label>
+        <label>
+          <span>Notater (privat)</span>
+          <textarea id="edit-notes" rows="3"></textarea>
+        </label>
+        <footer class="modal-footer">
+          <button type="button" class="danger" id="modal-delete">Slett</button>
+          <div class="spacer"></div>
+          <button type="button" id="modal-cancel">Avbryt</button>
+          <button type="submit" class="primary">Lagre</button>
+        </footer>
+      </form>
+    </div>
+  </div>
+
+  <footer class="footbar">
+    <span>v0.1 · lagres i localStorage på denne maskinen</span>
+    <span class="footbar-actions">
+      <button class="linkbtn" id="export-json">Eksporter JSON</button>
+      <button class="linkbtn" id="import-json">Importer JSON</button>
+      <input type="file" id="import-file" accept="application/json" hidden />
+      <button class="linkbtn danger" id="reset-all">Nullstill</button>
+    </span>
+  </footer>
+
+  <script src="seed.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

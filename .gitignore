@@ -1,0 +1,15 @@
+# macOS
+.DS_Store
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# OS / temp
+Thumbs.db
+*.log
+
+# Source content (private — ikke push til offentlig repo)
+*.docx
+*.pdf
