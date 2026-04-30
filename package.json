@@ -1,0 +1,15 @@
+{
+  "name": "content-brain",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Michel Eid — LinkedIn pipeline · 4-pillar rotation. Statisk dashboard låst med StaticCrypt.",
+  "scripts": {
+    "bundle": "node scripts/build.js --bundle-only",
+    "build": "node scripts/build.js",
+    "encrypt:local": "node scripts/build.js",
+    "serve:dist": "npx --yes http-server dist -p 8080 -c-1"
+  },
+  "devDependencies": {
+    "staticrypt": "^3.4.0"
+  }
+}

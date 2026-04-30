@@ -13,3 +13,12 @@ Thumbs.db
 # Source content (private — ikke push til offentlig repo)
 *.docx
 *.pdf
+
+# Node / build artifacts
+node_modules/
+package-lock.json
+dist/
+encrypted/
+
+# StaticCrypt — passord-fil hvis brukt lokalt
+.staticrypt.json
