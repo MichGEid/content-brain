@@ -139,10 +139,11 @@
   function activateTab(name) {
     $$(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === name));
     $$(".panel").forEach(p => p.classList.toggle("active", p.id === name));
-    if (name === "pipeline") renderPipeline();
-    if (name === "calendar") renderCalendar();
-    if (name === "archive")  renderArchive();
-    if (name === "capture")  renderCaptureRecent();
+    if (name === "pipeline")    renderPipeline();
+    if (name === "calendar")    renderCalendar();
+    if (name === "archive")     renderArchive();
+    if (name === "capture")     renderCaptureRecent();
+    if (name === "ghostwriter" && window.Ghostwriter?.init) window.Ghostwriter.init();
   }
 
   $$(".tab").forEach(t => t.addEventListener("click", () => activateTab(t.dataset.tab)));
@@ -239,6 +240,11 @@
     if (p.source)       meta.push(`<span title="${escapeHtml(p.source)}">kilde</span>`);
     if (p.linkedinUrl)  meta.push(`<a href="${escapeHtml(p.linkedinUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">LinkedIn ↗</a>`);
 
+    // "→ Ghostwriter" tilgjengelig på alle ikke-publiserte kort
+    const ghostwriterBtn = p.status !== "published"
+      ? `<button class="linkbtn" data-action="ghostwriter" data-id="${p.id}" onclick="event.stopPropagation()">→ Ghostwriter</button>`
+      : "";
+
     return `
       <li class="card" data-id="${p.id}">
         <div class="card-head">
@@ -247,6 +253,7 @@
         </div>
         ${p.body ? `<div class="card-body">${escapeHtml(p.body)}</div>` : ""}
         ${meta.length ? `<div class="card-meta">${meta.join(" · ")}</div>` : ""}
+        ${ghostwriterBtn ? `<div class="card-actions">${ghostwriterBtn}</div>` : ""}
       </li>
     `;
   }
@@ -254,6 +261,12 @@
   function bindCardClicks(container) {
     container.querySelectorAll(".card").forEach(c => {
       c.addEventListener("click", () => openEdit(c.dataset.id));
+    });
+    container.querySelectorAll('[data-action="ghostwriter"]').forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        window.ContentBrain?.sendToGhostwriter?.(btn.dataset.id);
+      });
     });
   }
 
@@ -359,6 +372,8 @@
   // ----------------------------- ARCHIVE -----------------------------
 
   let archivePillar = "all";
+  let archiveSearch = "";
+
   $$("#archive-pillar-filter .chip").forEach(c => {
     c.addEventListener("click", () => {
       archivePillar = c.dataset.pillar;
@@ -367,16 +382,26 @@
     });
   });
 
+  $("#archive-search").addEventListener("input", (e) => {
+    archiveSearch = e.target.value.trim().toLowerCase();
+    renderArchive();
+  });
+
   function renderArchive() {
     const items = state.posts
       .filter(p => p.status === "published")
       .filter(p => archivePillar === "all" || String(p.pillar) === archivePillar)
+      .filter(p => {
+        if (!archiveSearch) return true;
+        const hay = (p.title + " " + p.body + " " + (p.notes || "")).toLowerCase();
+        return hay.includes(archiveSearch);
+      })
       .sort((a, b) => (b.publishedAt || "").localeCompare(a.publishedAt || ""));
 
     const list = $("#archive-list");
     list.innerHTML = items.length
       ? items.map(renderCard).join("")
-      : `<li class="empty">Ingen publiserte innlegg i dette filteret.</li>`;
+      : `<li class="empty">${archiveSearch || archivePillar !== "all" ? "Ingen treff i dette filteret." : "Ingen publiserte innlegg ennå."}</li>`;
     bindCardClicks(list);
   }
 
@@ -482,6 +507,105 @@
     save();
     rerenderActive();
   });
+
+  // Tema-toggle: lyst (default) / mørkt. Lagres i localStorage.
+  const THEME_KEY = "contentBrain.theme";
+  function applyTheme(theme) {
+    if (theme === "dark") {
+      document.documentElement.setAttribute("data-theme", "dark");
+      $("#theme-toggle").textContent = "☀ Lyst";
+    } else {
+      document.documentElement.removeAttribute("data-theme");
+      $("#theme-toggle").textContent = "🌙 Mørkt";
+    }
+  }
+  function getInitialTheme() {
+    try {
+      const stored = localStorage.getItem(THEME_KEY);
+      if (stored) return stored;
+    } catch (e) {}
+    // Følg system-preferanse hvis ikke valgt
+    if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+      return "dark";
+    }
+    return "light";
+  }
+  applyTheme(getInitialTheme());
+  $("#theme-toggle").addEventListener("click", () => {
+    const current = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+    const next = current === "dark" ? "light" : "dark";
+    try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
+    applyTheme(next);
+  });
+
+  // Lås-knapp: tømmer StaticCrypt-sesjon og laster siden på nytt.
+  // På Pages / encrypted dist: dashbordet krever passord på nytt.
+  // På npm run dev: bare en reload, ingen lås (men knapp gir samme effekt).
+  $("#lock-now").addEventListener("click", () => {
+    if (!confirm("Lås Content Brain? Du må skrive passordet på nytt for å åpne (gjelder kryptert versjon).")) return;
+    try {
+      Object.keys(sessionStorage).forEach(k => {
+        if (k.toLowerCase().includes("staticrypt")) sessionStorage.removeItem(k);
+      });
+      Object.keys(localStorage).forEach(k => {
+        if (k.toLowerCase().includes("staticrypt")) localStorage.removeItem(k);
+      });
+    } catch (e) {}
+    location.reload();
+  });
+
+  // ----------------------------- public interface for Ghostwriter -----------------------------
+
+  /**
+   * Eksponerer en tynn intern API mot Ghostwriter-modulen.
+   * Holder data-modellen ren — Ghostwriter rører aldri state direkte.
+   */
+  window.ContentBrain = {
+    getState() {
+      return state;
+    },
+
+    addPost(partial) {
+      const post = {
+        id: newId(),
+        status: "draft",
+        pillar: null,
+        title: "",
+        body: "",
+        source: "",
+        notes: "",
+        capturedAt: new Date().toISOString(),
+        publishedAt: null,
+        scheduledFor: null,
+        linkedinUrl: "",
+        ...partial,
+      };
+      upsertPost(post);
+      // Re-render Pipeline hvis den er aktiv tab
+      if ($(".panel.active")?.id === "pipeline") renderPipeline();
+      return post.id;
+    },
+
+    saveVoiceProfile(profile) {
+      state.voiceProfile = profile;
+      save();
+    },
+
+    activateTab,
+
+    /**
+     * Brukes av "→ Ghostwriter"-knapp på pipeline-kort.
+     */
+    sendToGhostwriter(postId) {
+      const post = getPost(postId);
+      if (!post) return;
+      activateTab("ghostwriter");
+      // Vente til ghostwriter har initialisert
+      requestAnimationFrame(() => {
+        window.Ghostwriter?.loadFromPipeline?.(post);
+      });
+    },
+  };
 
   // ----------------------------- bootstrap -----------------------------
 

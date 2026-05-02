@@ -39,6 +39,18 @@ const SRC_CSS = path.join(ROOT, "style.css");
 const SRC_SEED = path.join(ROOT, "seed.js");
 const SRC_APP = path.join(ROOT, "app.js");
 
+// Ghostwriter-moduler. Rekkefølgen er viktig:
+//   api → prompts → edit-tracker → voice-profile → ghostwriter
+// edit-tracker leser DEFAULT_VOICE for å unngå dobbeltforslag, og
+// voice-profile bruker getBanlistSuggestions for "Læring"-seksjonen.
+const GHOSTWRITER_MODULES = [
+  "ghostwriter/api.js",
+  "ghostwriter/prompts.js",
+  "ghostwriter/edit-tracker.js",
+  "ghostwriter/voice-profile.js",
+  "ghostwriter/ghostwriter.js",
+];
+
 const DIST = path.join(ROOT, "dist");
 const BUNDLED_HTML = path.join(DIST, "index.html");
 
@@ -64,6 +76,10 @@ let html = read(SRC_HTML);
 const css = read(SRC_CSS);
 const seedJs = read(SRC_SEED);
 const appJs = read(SRC_APP);
+const ghostwriterModules = GHOSTWRITER_MODULES.map(rel => ({
+  rel,
+  content: read(path.join(ROOT, rel)),
+}));
 
 // VIKTIG: bruker callback-formen av .replace() slik at `$`-tegn i kildekoden
 // (f.eks. `$$`) ikke tolkes som spesielle replace-mønstre.
@@ -72,18 +88,34 @@ const appJs = read(SRC_APP);
 const styleBlock = `<style>\n${css}\n</style>`;
 html = html.replace(/<link[^>]+href=["']style\.css["'][^>]*>/i, () => styleBlock);
 
-// 2) <script src="seed.js"></script> + <script src="app.js"></script>
-//    → inline begge i samme rekkefølge.
-const scriptBlock =
-  `<script>\n${escapeForScript(seedJs)}\n</script>\n` +
-  `<script>\n${escapeForScript(appJs)}\n</script>`;
-html = html.replace(
-  /<script\s+src=["']seed\.js["']><\/script>\s*<script\s+src=["']app\.js["']><\/script>/i,
-  () => scriptBlock
-);
+// 2) Erstatt alle <script src="..."></script> som peker på lokale .js-filer.
+//    Rekkefølgen som finnes i HTML-en bevares.
+const wrapAsInline = (label, body) =>
+  `<script data-bundled="${label}">\n${escapeForScript(body)}\n</script>`;
+
+// Bygg en samlet replacer for alle script-tags vi vil inline. Vi går fra det
+// første script-tag-en og fremover, og bytter ut hver enkelt med sin
+// tilsvarende kildekode.
+const scriptReplacements = [
+  { re: /<script\s+src=["']seed\.js["']><\/script>/i,                        label: "seed.js",                  body: () => seedJs },
+  ...ghostwriterModules.map(m => ({
+    re: new RegExp(`<script\\s+src=["']${m.rel.replace(/[/.]/g, c => "\\" + c)}["']><\\/script>`, "i"),
+    label: m.rel,
+    body: () => m.content,
+  })),
+  { re: /<script\s+src=["']app\.js["']><\/script>/i,                          label: "app.js",                   body: () => appJs },
+];
+
+scriptReplacements.forEach(({ re, label, body }) => {
+  if (!re.test(html)) {
+    console.error(`[build] FAIL: fant ikke <script src="…"> for ${label} i HTML.`);
+    process.exit(1);
+  }
+  html = html.replace(re, () => wrapAsInline(label, body()));
+});
 
 // Sanity-check: ingen eksterne references skal være igjen.
-if (/src=["'](seed|app)\.js["']/i.test(html) || /href=["']style\.css["']/i.test(html)) {
+if (/<script\s+src=["'][^"']+\.js["']/i.test(html) || /<link[^>]+href=["'][^"']+\.css["']/i.test(html)) {
   console.error("[build] FAIL: ekstern referanse fortsatt i bundle. Sjekk regex.");
   process.exit(1);
 }

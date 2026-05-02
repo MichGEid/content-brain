@@ -7,7 +7,11 @@
     "bundle": "node scripts/build.js --bundle-only",
     "build": "node scripts/build.js",
     "encrypt:local": "node scripts/build.js",
-    "serve:dist": "npx --yes http-server dist -p 8080 -c-1"
+    "serve:dist": "npx --yes http-server dist -p 8080 -c-1",
+    "dev": "npx --yes http-server . -p 8081 -c-1 --cors",
+    "test": "node scripts/test-edit-tracker.js && node scripts/test-prompts.js --json > /dev/null && echo '✓ all tests passed'",
+    "test:prompts": "node scripts/test-prompts.js",
+    "test:edit-tracker": "node scripts/test-edit-tracker.js"
   },
   "devDependencies": {
     "staticrypt": "^3.4.0"
