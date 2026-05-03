@@ -1,5 +1,132 @@
 # Changelog
 
+## v0.7.5 (2026-05-03 morgen) — Claude API som tredje provider
+
+Backup-provider når Gemini er overlastet, eller når kvaliteten må være
+absolutt topp. Ikke gratis-tier (krever Anthropic-konto med kreditt),
+men kostnadene er svært lave for personlig bruk.
+
+### Funksjonalitet
+
+- **Provider-velger** har nå tre valg: Ollama, Gemini, **Claude API**
+- **Modeller:** claude-sonnet-4-6 (default, anbefalt), claude-opus-4-6
+  (høyest kvalitet), claude-haiku-4-5 (raskest, billigst)
+- **API-nøkkel** lagres lokalt i samme localStorage som Gemini-nøkkel
+- **Multi-turn**: full chat-refinement-støtte (samme pattern som Gemini)
+- **Auto-retry på 429**: leser `Retry-After`-header, venter automatisk
+- **Stream-deteksjon**: trunkering rapporteres via console.warn
+
+### Kostnadsoversikt (per ~200-ord-utkast)
+
+- claude-haiku-4-5: ~$0.003
+- claude-sonnet-4-6: ~$0.012
+- claude-opus-4-6: ~$0.06
+
+100 Sonnet-utkast = ~$1.20. Praktisk talt gratis for personlig bruk.
+Ingen daglige kvoter — så lenge konto har kreditt, kan du iterere
+fritt.
+
+### Anvendelsesvalg
+
+- **Ollama**: gratis, lokalt, privat, men 8B-modell
+- **Gemini gratis**: frontier-klasse, men daglige kvoter (særlig på pro)
+- **Claude**: frontier-klasse, ingen kvoter, mikrokost
+
+### Bruker `anthropic-dangerous-direct-browser-access`
+
+Anthropic markerer direkte browser-bruk som "dangerous" fordi API-
+nøkkelen eksponeres til client-side JS. For Michel sin use case
+(StaticCrypt-passord-beskyttet Pages, eller lokal kjøring), er
+risikoen akseptabel.
+
+### Filer endret
+
+```
+M  ghostwriter/api.js     (generateClaude, pingClaude, listClaudeModels,
+                           CLAUDE_BASE, oppdatert PROVIDERS-dispatch)
+M  GHOSTWRITER.md         (Claude-oppsett-seksjon med kostnadsoversikt)
+M  CHANGELOG.md           (denne)
+```
+
+## v0.7.4 (2026-05-03 morgen) — Datatap-beskyttelse + rate-limit auto-retry
+
+To større forbedringer som adresserer reelle bugs Michel rapporterte
+under første ekte testing:
+
+### Auto-save samtaler som Pipeline-Draft
+
+**Root cause-fiks for "jeg mistet utkastet"-problemet.**
+
+Tidligere flyt: brukeren genererte og itererte, og hvis hen ikke
+eksplisitt klikket "Lagre til Pipeline (Klar)", forsvant alt arbeid
+ved tab-bytte / browser-lukk.
+
+Ny flyt:
+- **Etter første model-turn**: Pipeline-post opprettes automatisk som
+  Draft. ID lagres i `ui.autoDraftPostId`.
+- **Hver iterasjon**: samme post oppdateres (ingen duplikater).
+- **Inline-edit av draft**: post oppdateres debounced (1.5s).
+- **Lagre-klikk**: posten promoteres til ønsket status (Klar/Draft).
+- **"Ny samtale"-klikk**: auto-Draft beholdes i Pipeline; samtale-state
+  nullstilles. Dialog gir tydelig melding.
+- **Tab-lukk / reload**: `beforeunload`-advarsel som siste backstop.
+
+Resultat: **det skal ikke være mulig å miste arbeid uten en eksplisitt
+destruktiv handling.**
+
+### Auto-retry på Gemini 429 rate limits
+
+Tidligere: 429 viste feilmelding ("Foreslått ventetid: 31s") og lot
+brukeren manuelt vente.
+
+Ny flyt:
+- 429 fanges, `retryDelay` parses fra Google-responsen
+- Hvis ventetid ≤ 90s: auto-retry én gang
+- UI viser nedteller: *"⏳ rate-limited, prøver igjen om 28s"* i stedet
+  for elapsed-timer
+- Avbryt-knappen funker fortsatt under venting (honorer abort-signal)
+- Hvis auto-retry også feiler: vanlig feilmelding
+
+### Visuell auto-save-indikator
+
+I samtale-headeren: *"💾 Auto-lagret som Draft i Pipeline 14:32"* viser
+at arbeidet er trygt.
+
+### Tekniske endringer
+
+- `ContentBrain.updatePost(id, partial)` — ny API-metode for delvis
+  oppdatering av post
+- `ContentBrain.hasPost(id)` — sjekk om post fortsatt finnes (forhindrer
+  stale ID hvis brukeren har slettet posten manuelt)
+- `ui.autoDraftPostId` + `ui.autoDraftSavedAt` persisteres i
+  `ghostwriter.draft` localStorage, så reload bevarer kobling
+- Custom events `ghostwriter:rate-limited`, `ghostwriter:rate-limit-tick`,
+  `ghostwriter:rate-limit-resolved` for løs kobling mellom api.js og UI
+- `waitWithAbort(ms, signal, onTick)` helper for asynkron venting som
+  honorer AbortController
+
+### Test-sjekkliste
+
+- [ ] Generer et utkast → sjekk Pipeline → Draft skal være der
+      automatisk med riktig title/body
+- [ ] Iterer flere ganger → samme Draft skal oppdateres (ikke duplikater)
+- [ ] Klikk "Ny samtale" → bekreft → Draft beholdes i Pipeline
+- [ ] Klikk "Lagre til Pipeline (Klar)" → samme post oppgraderes til Klar,
+      ingen ny duplikat opprettes
+- [ ] Editer siste utkast inline → vent 1.5s → Pipeline oppdateres
+- [ ] Hvis Gemini 429: skal nå auto-retry, ikke gi feilmelding (med
+      mindre ventetid > 90s)
+
+### Filer endret
+
+```
+M  app.js                       (updatePost + hasPost API)
+M  ghostwriter/api.js           (auto-retry, waitWithAbort, custom events)
+M  ghostwriter/ghostwriter.js   (auto-Pipeline-save, beforeunload, rate-limit feedback)
+M  style.css                    (gw-autodraft-status)
+M  CHANGELOG.md                 (denne)
+```
+
 ## v0.7.3 (2026-05-02 sen kveld) — Gemini thinking-mode fix
 
 ### Den virkelige bug-en bak trunkert output

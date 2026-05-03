@@ -52,6 +52,7 @@
 
   const OLLAMA_BASE = "http://localhost:11434";
   const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
+  const CLAUDE_BASE = "https://api.anthropic.com/v1";
 
   /**
    * Ollama: kjører lokalt på din maskin. Ingen API-nøkkel.
@@ -150,7 +151,32 @@
    * API-nøkkel hentes fra https://aistudio.google.com/app/apikey
    * Lagres i localStorage under "ghostwriter.apiKeys" — aldri sendt videre.
    */
-  async function generateGemini({ model, system, prompt, messages, options, signal, useUrlContext }) {
+  /**
+   * Wait for `ms` milliseconds, but abort if signal triggers.
+   * Brukes for auto-retry på rate limits.
+   */
+  function waitWithAbort(ms, signal, onTick) {
+    return new Promise((resolve, reject) => {
+      const start = Date.now();
+      const interval = setInterval(() => {
+        if (signal?.aborted) {
+          clearInterval(interval);
+          clearTimeout(timer);
+          const e = new Error("Aborted during wait");
+          e.name = "AbortError";
+          reject(e);
+          return;
+        }
+        if (onTick) onTick(Math.max(0, ms - (Date.now() - start)));
+      }, 250);
+      const timer = setTimeout(() => {
+        clearInterval(interval);
+        resolve();
+      }, ms);
+    });
+  }
+
+  async function generateGemini({ model, system, prompt, messages, options, signal, useUrlContext, _retryAttempt = 0 }) {
     const apiKey = getApiKey("gemini");
     if (!apiKey) {
       throw new Error("Mangler Gemini API-nøkkel. Klikk 🔑-knappen i Provider-velgeren for å sette den.");
@@ -226,6 +252,32 @@
         // Forsøk å hente retryDelay fra Google sin error-detail
         const retry = (errBody?.error?.details || [])
           .find(d => d?.["@type"]?.includes("RetryInfo"))?.retryDelay;
+        const retryMatch = retry?.match(/(\d+(?:\.\d+)?)\s*s/);
+        const retrySeconds = retryMatch ? parseFloat(retryMatch[1]) : null;
+
+        // Auto-retry én gang hvis ventetid er rimelig (≤ 90s) og vi ikke
+        // allerede har retried. Honorer abort-signal.
+        const MAX_RETRY_SECONDS = 90;
+        if (retrySeconds && retrySeconds <= MAX_RETRY_SECONDS && _retryAttempt === 0) {
+          const ms = Math.ceil(retrySeconds * 1000) + 500;   // litt slack
+          // Notify UI via custom event så app-en kan vise nedteller
+          window.dispatchEvent(new CustomEvent("ghostwriter:rate-limited", {
+            detail: { model, waitMs: ms, retrySeconds },
+          }));
+          try {
+            await waitWithAbort(ms, signal, (remaining) => {
+              window.dispatchEvent(new CustomEvent("ghostwriter:rate-limit-tick", {
+                detail: { remainingMs: remaining },
+              }));
+            });
+          } catch (e) {
+            if (e.name === "AbortError") throw e;
+          }
+          window.dispatchEvent(new CustomEvent("ghostwriter:rate-limit-resolved"));
+          // Rekursivt kall med _retryAttempt = 1 for å forhindre infinite loop
+          return generateGemini({ model, system, prompt, messages, options, signal, useUrlContext, _retryAttempt: 1 });
+        }
+
         const retryHint = retry ? ` Foreslått ventetid: ${retry}.` : "";
         const isPro = /pro/i.test(model);
         const limitHint = isPro
@@ -326,10 +378,161 @@
     }
   }
 
-  // ----------------------------- placeholder providers -----------------------------
+  // ----------------------------- Claude (Anthropic) provider -----------------------------
 
-  async function generateClaude(_args) {
-    throw new Error("Claude-provider er ikke implementert ennå. Bytt til Ollama eller Gemini.");
+  /**
+   * Anthropic Claude API. Krever API-nøkkel fra console.anthropic.com.
+   * Ikke gratis-tier, men kostnadene er lave for personlig bruk:
+   * - Sonnet 4.6: ~$3/M input, $15/M output ≈ $0.012/utkast
+   * - Opus 4.6:   ~$15/M input, $75/M output ≈ $0.06/utkast
+   * - Haiku 4.5:  ~$0.80/M input, $4/M output ≈ $0.003/utkast
+   *
+   * Bruker `anthropic-dangerous-direct-browser-access: true` for å tillate
+   * direkte browser-kall. API-nøkkelen lagres lokalt i localStorage.
+   * https://docs.anthropic.com/en/api/messages
+   */
+  async function generateClaude({ model, system, prompt, messages, options, signal, _retryAttempt = 0 }) {
+    const apiKey = getApiKey("claude");
+    if (!apiKey) {
+      throw new Error("Mangler Claude API-nøkkel. Klikk 🔑-knappen i Provider-velgeren for å sette den.");
+    }
+
+    // Bygg messages-array for Anthropic
+    const apiMessages = [];
+    if (messages && messages.length > 0) {
+      for (const m of messages) {
+        // Anthropic bruker user/assistant — normaliser
+        const role = m.role === "model" ? "assistant" : m.role;
+        if (role === "system") continue;   // system går i top-level system-felt
+        apiMessages.push({ role, content: m.content });
+      }
+    } else if (prompt) {
+      apiMessages.push({ role: "user", content: prompt });
+    }
+
+    const body = {
+      model,
+      max_tokens: options?.num_predict || 1500,
+      system: system || undefined,
+      messages: apiMessages,
+      temperature: options?.temperature ?? 0.5,
+    };
+
+    const t0 = Date.now();
+    const res = await fetch(`${CLAUDE_BASE}/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+      body: JSON.stringify(body),
+      signal,
+    });
+
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => null);
+      const errMsg = errBody?.error?.message || res.statusText;
+
+      if (res.status === 401 || res.status === 403) {
+        throw new Error(`Claude API-nøkkel avvist (${res.status}). Sjekk at nøkkelen er gyldig.`);
+      }
+      if (res.status === 429) {
+        // Auto-retry hvis Retry-After header finnes og rimelig
+        const retryAfter = parseInt(res.headers.get("retry-after") || "0", 10);
+        const MAX_RETRY_SECONDS = 90;
+        if (retryAfter > 0 && retryAfter <= MAX_RETRY_SECONDS && _retryAttempt === 0) {
+          const ms = retryAfter * 1000 + 500;
+          window.dispatchEvent(new CustomEvent("ghostwriter:rate-limited", {
+            detail: { model, waitMs: ms, retrySeconds: retryAfter },
+          }));
+          try {
+            await waitWithAbort(ms, signal, (remaining) => {
+              window.dispatchEvent(new CustomEvent("ghostwriter:rate-limit-tick", {
+                detail: { remainingMs: remaining },
+              }));
+            });
+          } catch (e) {
+            if (e.name === "AbortError") throw e;
+          }
+          window.dispatchEvent(new CustomEvent("ghostwriter:rate-limit-resolved"));
+          return generateClaude({ model, system, prompt, messages, options, signal, _retryAttempt: 1 });
+        }
+        throw new Error(`Claude rate limit (429). Vent og prøv igjen.${retryAfter ? ` Foreslått ventetid: ${retryAfter}s.` : ""}`);
+      }
+      if (res.status === 400) {
+        throw new Error(`Claude avviste forespørselen (400): ${errMsg}`);
+      }
+      throw new Error(`Claude feilet (${res.status}): ${errMsg}`);
+    }
+
+    const data = await res.json();
+    const text = data?.content?.[0]?.text;
+    const stopReason = data?.stop_reason;
+    if (!text) {
+      throw new Error(`Claude returnerte tomt svar${stopReason ? ` (${stopReason})` : ""}.`);
+    }
+
+    const durationMs = Date.now() - t0;
+    const inputTokens = data?.usage?.input_tokens || null;
+    const outputTokens = data?.usage?.output_tokens || null;
+
+    let warning = null;
+    if (stopReason === "max_tokens") {
+      warning = `Output trunkert (max_tokens truffet). Output: ${outputTokens || "?"} tokens.`;
+      console.warn("[Claude]", warning);
+    }
+
+    return {
+      text,
+      meta: {
+        model,
+        tokens: outputTokens,
+        promptTokens: inputTokens,
+        durationMs,
+        tokensPerSec: outputTokens && durationMs
+          ? +(outputTokens / (durationMs / 1000)).toFixed(1)
+          : null,
+        finishReason: stopReason || null,
+        warning,
+      },
+    };
+  }
+
+  /**
+   * Liste tilgjengelige Claude-modeller. Anthropic har en /v1/models-endpoint
+   * men vi serverer en kuratert liste av modeller egnet for skriving for
+   * å unngå overflod av varianter.
+   */
+  async function listClaudeModels() {
+    return [
+      "claude-sonnet-4-6",   // best balance, anbefalt
+      "claude-opus-4-6",     // høyest kvalitet, dyrere
+      "claude-haiku-4-5",    // raskest, billigst
+    ];
+  }
+
+  /**
+   * Verifiser at Claude-nøkkelen er gyldig via et minimal-kall.
+   */
+  async function pingClaude(signal) {
+    const apiKey = getApiKey("claude");
+    if (!apiKey) return false;
+    try {
+      const res = await fetch(`${CLAUDE_BASE}/models`, {
+        method: "GET",
+        headers: {
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true",
+        },
+        signal,
+      });
+      return res.ok;
+    } catch (e) {
+      return false;
+    }
   }
 
   // ----------------------------- dispatch -----------------------------
@@ -353,12 +556,13 @@
       apiKeyHelp: "Hent gratis nøkkel fra https://aistudio.google.com/app/apikey — ingen kredittkort nødvendig.",
     },
     claude: {
-      label: "Claude API (kommer)",
-      defaultModel: "claude-sonnet-4-5",
+      label: "Claude API",
+      defaultModel: "claude-sonnet-4-6",
       generate: generateClaude,
-      listModels: async () => ["claude-sonnet-4-5", "claude-opus-4-5", "claude-haiku-4-5"],
-      ping: async () => false,
+      listModels: listClaudeModels,
+      ping: pingClaude,
       requiresApiKey: true,
+      apiKeyHelp: "Hent nøkkel fra https://console.anthropic.com/settings/keys (krever konto med kreditt). ~$0.01-0.05 per utkast — i praksis gratis for personlig bruk.",
     },
   };
 

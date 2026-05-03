@@ -162,6 +162,23 @@ textarea { resize: vertical; font-family: inherit; }
 .capture-meta label > span { font-size: 0.78rem; color: var(--text-muted); }
 .capture-meta button { align-self: end; }
 
+/* Capture-body-wrap med mic-knapp i hjørnet */
+.capture-body-wrap {
+  position: relative;
+}
+.capture-body-wrap textarea {
+  width: 100%;
+}
+.capture-mic-host {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: inline-flex;
+  gap: 0.3rem;
+  align-items: center;
+  font-size: 0.78rem;
+}
+
 /* =========================== buttons =========================== */
 
 .primary {
@@ -749,6 +766,14 @@ textarea { resize: vertical; font-family: inherit; }
   color: var(--danger);
   font-size: 0.78rem;
   font-weight: 500;
+}
+
+.gw-autodraft-status {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.gw-autodraft-status.saved {
+  color: var(--success);
 }
 
 .gw-conv-actions {

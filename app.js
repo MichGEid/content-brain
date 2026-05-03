@@ -178,6 +178,27 @@
     $("#capture-title").focus();
   });
 
+  // Mic på Capture-body-feltet — krever Ghostwriter.setupMic
+  // (som lastes etter app.js i HTML, så bind asynkront)
+  function setupCaptureMic() {
+    if (!window.Ghostwriter?.setupMic) return;
+    window.Ghostwriter.setupMic({
+      btnSelector: "#capture-mic",
+      statusSelector: "#capture-mic-status",
+      langSelector: "#capture-mic-lang",
+      targetSelector: "#capture-body",
+      tooltipIdle: "Snakk inn ideen",
+      onText: (text) => {
+        const el = $("#capture-body");
+        if (!el) return;
+        const current = el.value;
+        el.value = (current ? current.trim() + " " : "") + text;
+      },
+    });
+  }
+  // Run after DOM and ghostwriter modules are loaded
+  setTimeout(setupCaptureMic, 0);
+
   function renderCaptureRecent() {
     const list = $("#capture-list");
     const recent = state.posts
@@ -584,6 +605,27 @@
       // Re-render Pipeline hvis den er aktiv tab
       if ($(".panel.active")?.id === "pipeline") renderPipeline();
       return post.id;
+    },
+
+    /**
+     * Oppdater eksisterende post (delvis) — brukes av Ghostwriter for å
+     * holde auto-Draft i Pipeline synkronisert med pågående samtale.
+     */
+    updatePost(id, partial) {
+      const existing = state.posts.find(p => p.id === id);
+      if (!existing) return false;
+      Object.assign(existing, partial);
+      save();
+      if ($(".panel.active")?.id === "pipeline") renderPipeline();
+      return true;
+    },
+
+    /**
+     * Sjekk om en post finnes. Brukes av Ghostwriter for å unngå
+     * stale autoDraftPostId etter at brukeren har slettet en post.
+     */
+    hasPost(id) {
+      return state.posts.some(p => p.id === id);
     },
 
     saveVoiceProfile(profile) {

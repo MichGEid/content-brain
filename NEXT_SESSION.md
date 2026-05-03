@@ -4,16 +4,24 @@ Sist oppdatert 2026-05-01 (etter Phase 2-bygging).
 
 ## TL;DR
 
-- Phase 0 (StaticCrypt + Ollama) ✅ live i prod
-- Phase 1 (Ghostwriter MVP) ✅ live lokalt, fungerer
-- Phase 1.5 (mic, ord-teller, auto-save, lås, Synk) ✅ live lokalt
-- **Phase 2 (3 av 4 features) ✅ bygget og wired** — venter på din testing:
-  - Edit-feedback-loop ✅ (Læring-seksjon i Voice Profile, "+ Banliste"/"Ignorer")
-  - Templates per pilar ✅ (struktur-guidance per pilar)
-  - Article reaction mode ✅ (modus-toggle i Compose)
-  - Tone slider ⏸️ (venter på dine beslutninger om akser)
-- Ingenting er pushet til GitHub fra Phase 1 og senere — produksjon
-  kjører fortsatt v0.1 (kun krypteringen)
+Alle planlagte fasene er nå bygget og pushet til GitHub. Ghostwriter
+er ende-til-ende komplett med tre providers, chat-refinement,
+data-tap-beskyttelse, auto-retry, og full Voice Profile-funksjonalitet.
+
+- ✅ Phase 0 (StaticCrypt + Ollama) — live i prod
+- ✅ Phase 1 (Ghostwriter MVP)
+- ✅ Phase 1.5 (mic, ord-teller, auto-save, lås, Synk)
+- ✅ Phase 2 (edit-feedback-loop, templates, article reaction)
+- ✅ Phase 2.5 (keyboard shortcuts, dark mode, kopier-knapper, etc.)
+- ✅ Phase 3 (tone slider per pilar med Michels akser)
+- ✅ Phase 4 (conversational refinement med Spør/chat-modus)
+- ✅ Gemini API som second provider (gratis tier, URL-context)
+- ✅ Claude API som third provider (~$0.012/utkast)
+- ✅ Auto-save samtaler som Pipeline-Draft (datatap-beskyttelse)
+- ✅ Auto-retry på 429 rate limits
+- ✅ beforeunload-advarsel som backstop
+
+Bundle: 213+ KB. Tester: 12/12 passing.
 
 Når vi snakkes igjen, åpne en ny chat i Content Brain-prosjektet og
 skriv noe som *"Klar for neste økt — har lest NEXT_SESSION.md."* Da

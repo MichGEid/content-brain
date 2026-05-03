@@ -32,7 +32,17 @@
 
       <form id="capture-form" class="capture-form">
         <input type="text" id="capture-title" placeholder="Tittel eller hook…" autocomplete="off" required />
-        <textarea id="capture-body" rows="5" placeholder="Anekdote → refleksjon → landing.&#10;Eller bare tre stikkord."></textarea>
+        <div class="capture-body-wrap">
+          <textarea id="capture-body" rows="5" placeholder="Anekdote → refleksjon → landing.&#10;Eller bare tre stikkord."></textarea>
+          <div class="capture-mic-host">
+            <select id="capture-mic-lang" class="gw-mic-lang">
+              <option value="nb-NO">🇳🇴</option>
+              <option value="en-US">🇬🇧</option>
+            </select>
+            <button type="button" id="capture-mic" class="gw-mic-btn" title="Snakk inn ideen">🎤</button>
+            <span class="gw-mic-status" id="capture-mic-status"></span>
+          </div>
+        </div>
         <div class="capture-meta">
           <label>
             <span>Pilar</span>

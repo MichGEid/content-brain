@@ -234,13 +234,34 @@ nøkkel" og lime inn en tom streng.
 Bare velg "Ollama (lokalt)" i provider-dropdown. Ingen oppsett krevet —
 fungerer så lenge Ollama kjører.
 
-### Claude API (stub)
+### Bytte til Claude
 
-Stub eksisterer men er ikke implementert. Hvis du senere vil legge til:
+Claude API er ikke gratis, men kostnadene er svært lave for personlig
+bruk. Anbefales som backup når Gemini er overlastet, eller for poster
+der du vil ha den absolutt beste kvaliteten.
 
-1. Implementer `generateClaude` i `ghostwriter/api.js` (følg samme
-   mønster som `generateGemini`)
-2. Provider-velger og API-nøkkel-UI fungerer uendret
+**Førstegangsoppsett:**
+
+1. Gå til https://console.anthropic.com/settings/keys
+2. Logg inn (krever konto med kreditt — kan starte med $5 i free credit)
+3. Klikk **Create Key** → kopier nøkkelen
+4. I Ghostwriter: bytt provider-velger til **Claude API**
+5. Klikk **🔑 Sett nøkkel** → lim inn nøkkelen → OK
+6. Provider-status skal nå vise **● tilkoblet** i grønt
+
+**Kostnadsoversikt (per utkast på 200 ord):**
+
+- `claude-haiku-4-5` — ~$0.003 (rask, lett, god til iterasjoner)
+- `claude-sonnet-4-6` — ~$0.012 (anbefalt, beste balanse)
+- `claude-opus-4-6` — ~$0.06 (best kvalitet, dyrere)
+
+100 utkast med Sonnet = ~$1.20. 100 med Opus = ~$6. Ingen daglige
+kvoter — så lenge du har kreditt, kan du iterere fritt.
+
+**Auto-retry:**
+
+Claude har samme auto-retry-logikk som Gemini ved 429 rate limits —
+appen leser `Retry-After`-headeren og venter automatisk.
 
 ## Phase 2 (live, må testes)
 

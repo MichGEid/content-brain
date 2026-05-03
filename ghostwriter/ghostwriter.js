@@ -38,6 +38,12 @@
     busy: false,
     abortController: null,
     voiceProfileExpanded: false,
+
+    // Auto-Draft i Pipeline: opprettes ved første model-turn, oppdateres
+    // ved hver iterasjon, "promoteres" til Klar når Lagre klikkes.
+    // Forhindrer datatap når brukeren ikke klikker Lagre.
+    autoDraftPostId: null,
+    autoDraftSavedAt: null,
   };
 
   // ----------------------------- conversation helpers -----------------------------
@@ -112,6 +118,92 @@
     ui.lastMeta = null;
     ui.lastSystemPrompt = "";
     ui.lastUserPrompt = "";
+    ui.autoDraftPostId = null;
+    ui.autoDraftSavedAt = null;
+  }
+
+  /**
+   * Auto-save siste draft som Pipeline-Draft. Opprettes ved første
+   * model-turn, oppdateres ved hver iterasjon. Sikrer at brukeren aldri
+   * mister arbeid selv om de glemmer å klikke Lagre.
+   *
+   * - Hvis ui.autoDraftPostId ikke finnes (eller posten er slettet):
+   *   opprett ny Pipeline-post med status="draft"
+   * - Hvis den finnes: oppdater body + metadata
+   */
+  function autoSaveDraftToPipeline() {
+    const cb = window.ContentBrain;
+    if (!cb || !cb.addPost) return;
+
+    const draft = lastDraftTurn();
+    if (!draft || !draft.text.trim()) return;
+
+    // Sjekk at eksisterende post-ID fortsatt er gyldig
+    if (ui.autoDraftPostId && cb.hasPost && !cb.hasPost(ui.autoDraftPostId)) {
+      ui.autoDraftPostId = null;
+    }
+
+    const firstLine = draft.text.split("\n").find(l => l.trim()) || "Ghostwriter draft";
+    const title = firstLine.slice(0, 80) + (firstLine.length > 80 ? "…" : "");
+    const isArticleReaction = ui.composeMode === "article-reaction";
+    const sourceField = isArticleReaction
+      ? (ui.articleUrl.trim() || "ghostwriter (article reaction)")
+      : "ghostwriter";
+    const noteField = isArticleReaction
+      ? `Article reaction. Angle: ${ui.articleAngle.slice(0, 200)}\nArticle excerpt: ${ui.articleText.slice(0, 300)}…`
+      : `Anchor: ${ui.anchor.slice(0, 200)}`;
+
+    if (ui.autoDraftPostId && cb.updatePost) {
+      // Oppdater eksisterende auto-draft
+      cb.updatePost(ui.autoDraftPostId, {
+        title,
+        body: draft.text,
+        pillar: ui.pillar,
+        source: sourceField,
+        notes: noteField,
+      });
+    } else {
+      // Opprett ny auto-draft
+      const id = cb.addPost({
+        title,
+        body: draft.text,
+        pillar: ui.pillar,
+        status: "draft",
+        source: sourceField,
+        notes: noteField,
+        capturedAt: new Date().toISOString(),
+      });
+      ui.autoDraftPostId = id;
+    }
+
+    ui.autoDraftSavedAt = new Date().toISOString();
+    saveDraftSoon();   // persistere autoDraftPostId i ghostwriter.draft
+
+    // Vis status-melding
+    showAutoDraftStatus();
+  }
+
+  // Debounced oppdatering av auto-Pipeline-draft når brukeren editerer inline
+  let autoDraftUpdateTimer = null;
+  function scheduleAutoDraftUpdate() {
+    if (autoDraftUpdateTimer) clearTimeout(autoDraftUpdateTimer);
+    autoDraftUpdateTimer = setTimeout(() => {
+      autoSaveDraftToPipeline();
+    }, 1500);
+  }
+
+  function showAutoDraftStatus() {
+    const el = document.querySelector("#gw-autodraft-status");
+    if (!el) return;
+    if (ui.autoDraftSavedAt) {
+      const t = new Date(ui.autoDraftSavedAt).toLocaleTimeString("nb-NO", {
+        hour: "2-digit", minute: "2-digit",
+      });
+      el.textContent = `💾 Auto-lagret som Draft i Pipeline ${t}`;
+      el.className = "gw-autodraft-status saved";
+    } else {
+      el.textContent = "";
+    }
   }
 
   /**
@@ -194,6 +286,8 @@
           feedbackInput: ui.feedbackInput,
           feedbackInProgress: ui.feedbackInProgress,
           feedbackMode: ui.feedbackMode,
+          autoDraftPostId: ui.autoDraftPostId,
+          autoDraftSavedAt: ui.autoDraftSavedAt,
           output: ui.output,
           lastGenerated: ui.lastGenerated,    // bevar baseline for edit-tracking på tvers av reload
           lastMeta: ui.lastMeta,
@@ -226,6 +320,8 @@
       if (typeof draft.feedbackInput === "string") ui.feedbackInput = draft.feedbackInput;
       if (typeof draft.feedbackInProgress === "boolean") ui.feedbackInProgress = draft.feedbackInProgress;
       if (typeof draft.feedbackMode === "string") ui.feedbackMode = draft.feedbackMode;
+      if (typeof draft.autoDraftPostId === "string") ui.autoDraftPostId = draft.autoDraftPostId;
+      if (typeof draft.autoDraftSavedAt === "string") ui.autoDraftSavedAt = draft.autoDraftSavedAt;
 
       // Sanity: feedback-modus uten samtale gir mening ikke. Reset.
       if (ui.feedbackInProgress && ui.conversation.length === 0) {
@@ -848,13 +944,19 @@
       ? `<span class="gw-conv-warn">⚠ Stor samtale (~${estTokens} tokens). Vurder å lagre eller starte ny.</span>`
       : "";
 
+    const pillarLabel = PILLAR_INFO[ui.pillar]?.label || "";
     container.innerHTML = `
       <div class="gw-section gw-conv">
         <div class="gw-conv-head">
-          <h3>Samtale <span class="muted small">${ui.conversation.length} turn${ui.conversation.length === 1 ? "" : "s"}</span></h3>
+          <h3>
+            <span class="dot p${ui.pillar}" title="Pilar ${ui.pillar}: ${escapeHtml(pillarLabel)}"></span>
+            Samtale
+            <span class="muted small">Pilar ${ui.pillar} · ${ui.conversation.length} turn${ui.conversation.length === 1 ? "" : "s"}</span>
+          </h3>
           <div class="gw-conv-head-actions">
+            <span class="gw-autodraft-status" id="gw-autodraft-status"></span>
             <span class="muted small" id="gw-conv-meta">${warning}</span>
-            <button type="button" class="linkbtn" id="gw-conv-new" title="Forkast samtalen og start på nytt">↺ Ny samtale</button>
+            <button type="button" class="linkbtn" id="gw-conv-new" title="Forkast samtalen og start på nytt (auto-Draft i Pipeline beholdes)">↺ Ny samtale</button>
           </div>
         </div>
 
@@ -878,6 +980,7 @@
     // Bind events for siste model-turn (editerbar tekst)
     bindConvEvents();
     updateWordCount();
+    showAutoDraftStatus();
   }
 
   function renderTurn(turn, idx, isLast) {
@@ -1030,6 +1133,8 @@
         updateWordCount();
         saveDraftSoon();
         autoSizeTextarea(lastTextarea);
+        // Debounce auto-Pipeline-update så vi ikke spammer på hvert tastetrykk
+        scheduleAutoDraftUpdate();
       });
     }
 
@@ -1056,9 +1161,13 @@
     // Cancel-knapp i busy-card
     $("#gw-cancel")?.addEventListener("click", onCancel);
 
-    // Ny samtale — forkast nåværende og start på nytt
+    // Ny samtale — forkast samtale-state, men auto-Draft i Pipeline beholdes
     $("#gw-conv-new")?.addEventListener("click", () => {
-      if (!confirm("Forkaste denne samtalen og starte ny? Utkastet er ikke lagret til Pipeline.")) return;
+      const hasAutoDraft = ui.autoDraftPostId && window.ContentBrain?.hasPost?.(ui.autoDraftPostId);
+      const msg = hasAutoDraft
+        ? "Starte ny samtale?\n\nNåværende utkast er allerede auto-lagret som Draft i Pipeline og blir bevart der. Du kan finne det igjen senere."
+        : "Forkaste denne samtalen og starte ny? Det er ingen auto-Draft i Pipeline ennå.";
+      if (!confirm(msg)) return;
       clearConversation();
       try { localStorage.removeItem("ghostwriter.draft"); } catch (e) {}
       renderAll();
@@ -1219,6 +1328,7 @@
       addModelTurn(result.text, result.meta);
       ui.lastMeta = result.meta;
       saveDraftSoon();
+      autoSaveDraftToPipeline();   // beskytt mot datatap
     } catch (e) {
       if (e.name === "AbortError") {
         // brukeren klikket Avbryt — fjern user-turn-en så Compose-feltene fortsatt kan brukes
@@ -1324,6 +1434,8 @@
       addModelTurn(result.text, result.meta, modelType);
       ui.lastMeta = result.meta;
       saveDraftSoon();
+      // Bare auto-save når det er en NY draft (ikke ved Spør-svar)
+      if (modelType === "draft") autoSaveDraftToPipeline();
     } catch (e) {
       if (e.name === "AbortError") {
         // brukeren avbrøt — fjern siste user-turn
@@ -1528,16 +1640,33 @@
       ? `Article reaction. Angle: ${ui.articleAngle.slice(0, 200)}\nArticle excerpt: ${ui.articleText.slice(0, 300)}…`
       : `Anchor: ${ui.anchor.slice(0, 200)}`;
 
-    const postId = cb.addPost({
-      title,
-      body: ui.output,
-      pillar: ui.pillar,
-      status,
-      source: sourceField,
-      notes: noteField,
-      capturedAt: new Date().toISOString(),
-      editHistory,                                // null hvis ingen edit ble registrert
-    });
+    let postId;
+    // Hvis vi har en auto-Draft i Pipeline allerede: oppdater den i stedet
+    // for å lage duplikat. Promoter til ønsket status (klar/draft).
+    if (ui.autoDraftPostId && cb.hasPost && cb.hasPost(ui.autoDraftPostId) && cb.updatePost) {
+      cb.updatePost(ui.autoDraftPostId, {
+        title,
+        body: finalText,
+        pillar: ui.pillar,
+        status,
+        source: sourceField,
+        notes: noteField,
+        editHistory,
+      });
+      postId = ui.autoDraftPostId;
+    } else {
+      // Fallback: opprett ny post
+      postId = cb.addPost({
+        title,
+        body: finalText,
+        pillar: ui.pillar,
+        status,
+        source: sourceField,
+        notes: noteField,
+        capturedAt: new Date().toISOString(),
+        editHistory,
+      });
+    }
 
     // Tøm Compose + samtalen etter lagring så form-en er klar for neste idé
     ui.anchor = "";
@@ -1630,6 +1759,70 @@
     loadDraft();
     renderAll();
     setupKeyboardShortcuts();
+    setupBeforeUnloadGuard();
+    setupRateLimitFeedback();
+  }
+
+  // ----------------------------- rate limit auto-retry feedback -----------------------------
+
+  /**
+   * Lytt på rate-limit-events fra api.js og vis tydelig nedteller-status
+   * mens vi venter på at Gemini skal slippe oss inn igjen.
+   */
+  let rateLimitListenersBound = false;
+  function setupRateLimitFeedback() {
+    if (rateLimitListenersBound) return;
+    rateLimitListenersBound = true;
+
+    window.addEventListener("ghostwriter:rate-limited", (e) => {
+      const { model, retrySeconds } = e.detail || {};
+      console.info(`[Ghostwriter] Rate-limited på ${model}. Auto-retry om ${retrySeconds}s.`);
+      // Vise i elapsed-time-feltet hvis det er aktivt
+      const el = document.querySelector("#gw-elapsed");
+      if (el) el.textContent = `⏳ rate-limited, prøver igjen om ${Math.ceil(retrySeconds)}s`;
+    });
+
+    window.addEventListener("ghostwriter:rate-limit-tick", (e) => {
+      const remaining = Math.ceil((e.detail?.remainingMs || 0) / 1000);
+      const el = document.querySelector("#gw-elapsed");
+      if (el && remaining > 0) {
+        el.textContent = `⏳ rate-limited, prøver igjen om ${remaining}s`;
+      }
+    });
+
+    window.addEventListener("ghostwriter:rate-limit-resolved", () => {
+      console.info("[Ghostwriter] Rate-limit ferdig, prøver igjen.");
+      const el = document.querySelector("#gw-elapsed");
+      if (el) el.textContent = "0.0s";   // restart elapsed-timer
+      elapsedStart = Date.now();
+    });
+  }
+
+  // ----------------------------- beforeunload guard -----------------------------
+
+  /**
+   * Backstop: hvis brukeren prøver å lukke fanen midt i en samtale med
+   * en ferskt-redigert draft som ikke er auto-lagret enda, vis browser-
+   * advarsel. Auto-save-til-Pipeline løser de fleste tilfeller, men
+   * dette er ekstra forsikring mot edge cases.
+   */
+  let beforeUnloadBound = false;
+  function setupBeforeUnloadGuard() {
+    if (beforeUnloadBound) return;
+    beforeUnloadBound = true;
+
+    window.addEventListener("beforeunload", (e) => {
+      // Bare advar hvis det finnes en draft som ikke er auto-lagret
+      // (sjekker timestamp-forskjell mellom siste edit og auto-save)
+      const draft = lastDraftTurn();
+      if (!draft) return;
+      // Hvis ingen auto-draft i Pipeline, advar — vi kan miste alt
+      if (!ui.autoDraftPostId) {
+        e.preventDefault();
+        e.returnValue = "";
+        return "";
+      }
+    });
   }
 
   // ----------------------------- keyboard shortcuts -----------------------------
@@ -1680,4 +1873,6 @@
   window.Ghostwriter = window.Ghostwriter || {};
   window.Ghostwriter.init = init;
   window.Ghostwriter.loadFromPipeline = loadFromPipeline;
+  // Eksponer generic mic-setup så Capture-tab og andre kan bruke den
+  window.Ghostwriter.setupMic = setupMicGeneric;
 })();
