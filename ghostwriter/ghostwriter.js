@@ -214,12 +214,15 @@
    * modellen vet om det er en revisjon eller et spørsmål. Uten dette
    * tolker modellen ofte chatty feedback som dialogue og svarer med
    * meta-tekst i stedet for å regenerere posten.
+   *
+   * @param {string} initialUserPrompt - faktisk prompt for første user-turn
+   * @param {Array} conversation - samtale-array (default: ui.conversation, eksponert for testing)
    */
-  function buildConversationMessages(initialUserPrompt) {
+  function buildConversationMessages(initialUserPrompt, conversation = ui.conversation) {
     const messages = [];
     let firstUserSent = false;
 
-    for (const turn of ui.conversation) {
+    for (const turn of conversation) {
       if (turn.role === "user") {
         if (!firstUserSent) {
           // Første user-turn: faktisk prompt fra Compose-feltene
@@ -1875,4 +1878,6 @@
   window.Ghostwriter.loadFromPipeline = loadFromPipeline;
   // Eksponer generic mic-setup så Capture-tab og andre kan bruke den
   window.Ghostwriter.setupMic = setupMicGeneric;
+  // Eksponert for testing — ren funksjon, lett å verifisere
+  window.Ghostwriter.buildConversationMessages = buildConversationMessages;
 })();

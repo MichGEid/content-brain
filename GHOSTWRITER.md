@@ -432,17 +432,92 @@ modellen faktisk får.
 
 ## Feilsøking
 
+### Provider-spesifikke problemer
+
 | Symptom | Sjekk |
 |---|---|
-| "● ikke tilgjengelig" på provider-status | Ollama kjører ikke. `brew services start ollama` |
+| "● ikke tilgjengelig" på Ollama | Ollama kjører ikke. `brew services start ollama` |
+| "● blokkert (HTTPS)" på Ollama | Du er på Pages — Ollama krever lokal HTTP. Bytt til Gemini, eller bruk localhost. |
+| "● mangler nøkkel" på Gemini/Claude | Klikk 🔑-knappen og sett API-nøkkel |
+| Gemini 429 men ingen auto-retry | Ventetiden var > 90 sek. Bytt modell (flash/lite har høyere kvoter) |
+| Output trunkert mid-sentence | Var et problem på Gemini 2.5+ med thinking-mode. Fikset i v0.7.3 — `thinkingBudget: 0` |
+| Claude 401/403 | API-nøkkel ugyldig eller utløpt. Sjekk console.anthropic.com |
+
+### Mic / SpeechRecognition
+
+| Symptom | Sjekk |
+|---|---|
 | Mic-knapp disabled | Nettleseren støtter ikke SpeechRecognition (Firefox uten extension) |
-| Mic gir "feil: not-allowed" | Mikrofon-tilgang nektet. Reset i Chrome Settings → Privacy → Site Settings |
+| Mic gir "feil: not-allowed" | Mikrofon-tilgang nektet. Reset i Chrome/Safari → Privacy → Site Settings |
+| Mic stopper umiddelbart | Sjekk at ingen annen app bruker mikrofonen. macOS: lukk Discord, Zoom etc. |
+
+### Ghostwriter UI
+
+| Symptom | Sjekk |
+|---|---|
 | Ghostwriter-tab tom (kun panel-head) | JS-feil. Åpne DevTools → Console |
-| Synk-knapp vises ikke | Profilen din matcher allerede defaults (riktig oppførsel) |
-| Pillar 1 examples-tellere viser 0 etter Lagre | Du har sannsynligvis byttet origin (port). Sjekk `localStorage.getItem('contentBrain.v1')` |
-| Output blir konsekvent for kort med qwen2.5:7b | Regenerer eller bruk lengre/mer detaljert anker |
-| Output snakker for arbeidsgiver | Regel #3 bør stoppe det. Hvis ikke, sjekk at profilen din har 8 regler |
+| Synk-knapp vises ikke i Voice Profile | Profilen din matcher allerede defaults (riktig oppførsel) |
 | Cmd+Enter funker ikke | Du må være på Ghostwriter-tab — shortcut er kun aktiv der |
 | Læring-seksjon viser ingenting | Du må gjøre minst én edit-og-lagre etter en Generer for at data skal samles |
 | Læring-forslag viser ikke en frase du strøk | Trenger 3+ forekomster av samme frase. Hvis det er over terskel, sjekk om frasen er i ignorert-listen |
-| Dark mode hopper tilbake til lyst etter reload | Sjekk at localStorage ikke blir tømt (f.eks. via Lås-knappen — den tømmer staticrypt-keys, ikke contentBrain-keys, men sjekk om noe annet tømmer) |
+| Output blir konsekvent for kort med Ollama | Regenerer eller bruk lengre/mer detaljert anker. 8B-modeller er noen ganger lazy. |
+| Output snakker for arbeidsgiver | Regel #3 bør stoppe det. Hvis ikke, sjekk at profilen din har 8 regler |
+
+### Datatap og persistens
+
+| Symptom | Sjekk |
+|---|---|
+| Pillar 1 examples-tellere viser 0 etter Lagre | Du har sannsynligvis byttet origin (port). Sjekk `localStorage.getItem('contentBrain.v1')` i DevTools |
+| Dark mode hopper tilbake til lyst etter reload | Browser-data ble wipet. Sjekk Safari ITP eller Privacy-mode. |
+| Hele Pipeline ser ut som seed-data, mine ekte poster er borte | localStorage er wipet — sannsynligvis Safari ITP. Se "Safari ITP-problem" under. |
+| API-nøkkel forsvinner mellom sesjoner | Samme rotårsak som over. Bruk Chrome eller slå av cross-site tracking. |
+| Generert utkast er ikke i Pipeline etter tab-lukk | Med v0.7.4+ skal auto-Draft i Pipeline være der. Hvis ikke: sjekk console for feil. |
+
+### Safari ITP-problem (alvorlig hvis du bruker Pages)
+
+**Symptom:** Hele localStorage på `michgeid.github.io` blir wipet uventet.
+Du mister API-nøkkel, Voice Profile-customizations, og lagrede drafts.
+
+**Årsak:** Safari Intelligent Tracking Prevention (ITP) behandler
+`.github.io`-subdomener aggressivt. Etter ~7 dager uten "engasjement"
+wipes localStorage. Kan også ramme tidligere.
+
+**Løsninger:**
+
+1. **Slå av cross-site tracking i Safari:**
+   - Innstillinger → Privacy → fjern hake fra "Prevent cross-site tracking"
+   - Tradeoff: cross-site annonsører kan tracke deg, men ikke et reelt
+     problem for ditt eget dashboard
+2. **Bruk Chrome for Ghostwriter:**
+   - Chrome respekterer localStorage betydelig bedre
+   - Du kan ha Safari for vanlig surfing og Chrome bare for Ghostwriter
+3. **Egen domene (langsiktig):**
+   - Kjøp domene → custom domain på GitHub Pages → Safari behandler som
+     første-parts → ITP slår ikke inn på samme måte
+4. **Ta backup jevnlig:**
+   - 📦 Backup-knappen i footer laster ned full JSON
+   - Importer hvis du noen gang mister data
+   - Hvis siste backup er > 7 dager, vises knappen i orange som påminnelse
+
+### Dataflyt-feilsøking
+
+For å se hva som faktisk er lagret, åpne DevTools Console (Cmd+Opt+I)
+og kjør:
+
+```javascript
+// Innholdet i hovedstate
+const cb = JSON.parse(localStorage.getItem('contentBrain.v1') || 'null');
+console.log('posts:', cb?.posts?.length, 'voiceProfile:', !!cb?.voiceProfile);
+
+// Pågående samtale
+const draft = JSON.parse(localStorage.getItem('ghostwriter.draft') || 'null');
+console.log('conversation turns:', draft?.conversation?.length, 'autoDraftPostId:', draft?.autoDraftPostId);
+
+// API-nøkler (uten å vise dem)
+const keys = JSON.parse(localStorage.getItem('ghostwriter.apiKeys') || '{}');
+console.log('keys set:', Object.keys(keys));
+
+// Læringsdata
+const learn = JSON.parse(localStorage.getItem('ghostwriter.editLearning') || 'null');
+console.log('edits tracked:', learn?.edits?.length);
+```

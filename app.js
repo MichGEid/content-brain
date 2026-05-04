@@ -559,6 +559,73 @@
     applyTheme(next);
   });
 
+  // Backup-knapp: laster ned full JSON-snapshot med timestamp i filnavnet.
+  // Forsvar mot Safari ITP / browser-data-clearing. Indikerer i orange
+  // hvis siste backup er > 7 dager siden.
+  const BACKUP_KEY = "contentBrain.lastBackup";
+  function getLastBackupAt() {
+    try {
+      const v = localStorage.getItem(BACKUP_KEY);
+      return v ? new Date(v) : null;
+    } catch (e) { return null; }
+  }
+  function setLastBackupAt(date) {
+    try { localStorage.setItem(BACKUP_KEY, date.toISOString()); } catch (e) {}
+  }
+  function refreshBackupButton() {
+    const btn = $("#backup-now");
+    if (!btn) return;
+    const last = getLastBackupAt();
+    if (!last) {
+      btn.classList.add("warn");
+      btn.title = "Ingen backup tatt enda. Anbefales jevnlig som forsikring mot data-tap.";
+      return;
+    }
+    const daysSince = (Date.now() - last.getTime()) / (24 * 60 * 60 * 1000);
+    if (daysSince > 7) {
+      btn.classList.add("warn");
+      btn.title = `Siste backup: ${Math.round(daysSince)} dager siden. Vurder å ta ny.`;
+    } else {
+      btn.classList.remove("warn");
+      const daysStr = daysSince < 1 ? "i dag" : `${Math.round(daysSince)} dag${Math.round(daysSince) === 1 ? "" : "er"} siden`;
+      btn.title = `Siste backup: ${daysStr}`;
+    }
+  }
+  $("#backup-now").addEventListener("click", () => {
+    // Inkluder all relevant localStorage i backupen, ikke bare contentBrain.v1.
+    // Dette dekker Voice Profile, edit-tracker-data, ghostwriter-UI-state,
+    // og evnt. ghostwriter.draft (pågående samtale).
+    const backup = {
+      version: "v0.7-backup",
+      exportedAt: new Date().toISOString(),
+      contentBrain: state,
+      // Snapshot av relevante ghostwriter-keys
+      ghostwriter: {},
+    };
+    try {
+      ["ghostwriter.editLearning", "ghostwriter.ui", "ghostwriter.draft"].forEach(k => {
+        const v = localStorage.getItem(k);
+        if (v) backup.ghostwriter[k] = JSON.parse(v);
+      });
+    } catch (e) {}
+    // API-nøkler eksluderes BEVISST — sikkerhet
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const ts = new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-");
+    a.href = url;
+    a.download = `content-brain-backup-${ts}.json`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 100);
+    setLastBackupAt(new Date());
+    refreshBackupButton();
+  });
+  refreshBackupButton();
+
   // Lås-knapp: tømmer StaticCrypt-sesjon og laster siden på nytt.
   // På Pages / encrypted dist: dashbordet krever passord på nytt.
   // På npm run dev: bare en reload, ingen lås (men knapp gir samme effekt).

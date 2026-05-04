@@ -1,5 +1,95 @@
 # Changelog
 
+## v0.7.6 (2026-05-03 kveld) — Tester, backup-knapp, polish
+
+Fokusert sesjon på robusthet og forsikring etter at Michel oppdaget
+Safari ITP wiper localStorage på Pages.
+
+### Test-coverage utvidet (12 → 32 tester)
+
+`scripts/test-conversation.js` — 20 nye unit-tester:
+
+- **buildConversationMessages** (7 tester): type-markører ([REVISE THE
+  DRAFT] for iterate, [QUESTION] for ask), role-mapping (model→assistant),
+  rekkefølge-bevaring, blanding av modi
+- **buildToneInstruction** (6 tester): lean low/high/balanced, format,
+  value-clamping (0-100)
+- **selectExamples** (7 tester): manual override, MANUAL_CAP=5,
+  fallback til andre pilarer, post-shape (ikke eksponere internal IDer)
+
+`buildConversationMessages` refaktorert til å ta conversation som
+parameter (default `ui.conversation`) — eksponert i `window.Ghostwriter`
+for testbarhet uten å bryte normal bruk.
+
+`npm run test` kjører nå alle tre testfiler.
+
+### 📦 Backup-knapp i footer
+
+Eksplisitt forsvar mot Safari ITP / browser-wipes / privat-mode-tap.
+
+- **Manuell trigger** — klikk når som helst for å laste ned full snapshot
+- **JSON-fil** med timestamp i filnavn: `content-brain-backup-2026-05-03-19-42.json`
+- **Inkluderer:** posts, voiceProfile, meta, edit-learning, ghostwriter-UI,
+  pågående samtale (hvis aktiv)
+- **Eksluderer bevisst:** API-nøkler (sikkerhet — du må sette dem på
+  nytt etter en restore)
+- **Smart indikator:** knappen blir orange hvis siste backup > 7 dager
+- **Tooltip** viser når siste backup ble tatt
+
+### Mic på Capture-tab
+
+Konsistens — du kan nå dikte ideer rett i Capture, samme som anker og
+feedback. Både norsk og engelsk.
+
+### Pilar-fargemerke i samtale-headeren
+
+Subtilt fargemerke (●) i samtale-tråden som matcher pilarens farge.
+Tydelig visuelt anker for hvilken pilar samtalen er for.
+
+### Utvidet feilsøkings-dokumentasjon
+
+GHOSTWRITER.md har nå:
+- Egen seksjon for **Safari ITP-problemet** med fire mitigerings-veier
+- **Datatap-feilsøkings-tabell**
+- **DevTools console-snippets** for å diagnostisere localStorage-state
+- Provider-spesifikke feilsøkings-tabeller
+
+### STATUS.md konsolidert
+
+Komplett systemoversikt: alle providers, modi, lagring-keys,
+test-coverage, kjente begrensninger, fil-oversikt.
+
+### Bug-jakt utført
+
+Gjennomgikk alle code paths i auto-save / savePost / clearConversation-
+interaksjonen. Fant ingen race conditions. Edge cases (slettet auto-
+draft, provider-bytting midt-samtale, multiple tabs) håndteres
+gracefully.
+
+### Filer endret
+
+```
+M  app.js                       (backup-knapp + getLastBackupAt + refreshBackupButton)
+M  index.html                   (📦 Backup-knapp + capture-mic-host)
+M  style.css                    (.linkbtn.warn + .capture-body-wrap)
+M  ghostwriter/ghostwriter.js   (eksponerer buildConversationMessages,
+                                 capture-mic via setupMic, pilar-color i header)
+M  GHOSTWRITER.md               (Safari ITP-seksjon, dataflyt-feilsøking)
+M  STATUS.md                    (full system-konsolidering)
+M  CHANGELOG.md                 (denne)
+M  package.json                 (npm run test:conversation)
+A  scripts/test-conversation.js (20 nye unit-tester)
+```
+
+### Test-sjekkliste
+
+- [ ] `npm run test` viser 32 passerte tester
+- [ ] 📦 Backup-knapp laster ned JSON med riktig innhold
+- [ ] Etter import av en backup, alt er tilbake (unntatt API-nøkler
+      som må settes på nytt)
+- [ ] Mic-knapp på Capture-tab fungerer på norsk og engelsk
+- [ ] Samtale-header viser ●-prikken med riktig pilar-farge
+
 ## v0.7.5 (2026-05-03 morgen) — Claude API som tredje provider
 
 Backup-provider når Gemini er overlastet, eller når kvaliteten må være

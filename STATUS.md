@@ -1,135 +1,180 @@
 # Status — Content Brain + Ghostwriter
 
-Sist oppdatert 2026-05-01 (kveld).
+Sist oppdatert 2026-05-03 (kveld). Versjon: v0.7.5+ med tester og polish.
 
 ## Helhetlig status
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│  PHASE 0    StaticCrypt + Ollama        ✅ Live i prod  │
-│  PHASE 1    Ghostwriter MVP             ✅ Live lokalt   │
-│  PHASE 1.5  Mic, ord-teller, auto-save   ✅ Live lokalt  │
-│  PHASE 2    Edit-loop + templates +     ✅ Bygget,      │
-│             article reaction              må testes      │
-│  PHASE 2.5  Polish (shortcuts, dark      ✅ Bygget       │
-│             mode, prompt copy, etc.)                     │
-│  PHASE 3    Tone slider                  ⏸️  Venter       │
-│             Flere providers                              │
-└─────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────┐
+│  Phase 0    StaticCrypt + Ollama         ✅ Live i prod     │
+│  Phase 1    Ghostwriter MVP              ✅ Live            │
+│  Phase 1.5  Mic, ord-teller, auto-save   ✅ Live            │
+│  Phase 2    Edit-loop + templates +      ✅ Live            │
+│             article reaction                                 │
+│  Phase 2.5  Polish (shortcuts, dark      ✅ Live            │
+│             mode, prompt copy, etc.)                         │
+│  Phase 3    Tone slider med Michels      ✅ Live            │
+│             akser (P1=30, P2=20,                             │
+│             P3=20, P4=70)                                    │
+│  Phase 4    Conversational refinement    ✅ Live            │
+│             med Spør/chat                                    │
+│  Phase 5    Gemini provider + URL-       ✅ Live            │
+│             context fetching                                 │
+│  Phase 6    Claude provider              ✅ Live            │
+│  Phase 7    Datatap-beskyttelse          ✅ Live            │
+│             (auto-Draft til Pipeline,                        │
+│             beforeunload, backup)                            │
+│  Tests      32 unit-tester               ✅ Alle passerer    │
+└────────────────────────────────────────────────────────────┘
 ```
 
-## Hva er nytt siden forrige status
+## Hele system-arkitekturen
 
-### Phase 2 (3 av 4 features bygget)
+### Lagring
 
-**Edit-feedback-loop fullt wired:**
-- `recordEdit` kalles automatisk i `savePost` når output ≠ generated
-- `editHistory` lagres på Pipeline-posten (generated, timestamp, model)
-- Ny **"📊 Læring fra dine edits"**-seksjon øverst i Voice Profile-drawer:
-  - Banlist-forslag etter 3+ forekomster av samme strøkne frase
-  - Length-kalibrering (hvis du konsekvent kutter — anbefaler kortere)
-  - **"+ Banliste"** og **"Ignorer"**-knapper per forslag
-  - Ignored phrases dukker aldri opp igjen
-  - "Slett læringsdata"-knapp i bunn
+```
+localStorage (per origin):
+├── contentBrain.v1          → posts, meta, voiceProfile (kjernedata)
+├── contentBrain.theme       → "light" | "dark"
+├── contentBrain.lastBackup  → ISO timestamp av siste manuelle backup
+├── ghostwriter.ui           → provider, model, pillar, lengthKey, composeMode, toneByPillar
+├── ghostwriter.draft        → pågående samtale (anchor, conversation, autoDraftPostId, etc.)
+├── ghostwriter.apiKeys      → Gemini + Claude API-nøkler
+└── ghostwriter.editLearning → edit-tracker n-gram statistikk
+```
 
-**Templates per pilar:**
-- `PILLAR_INFO` utvidet med `template.structureGuidance`, `preferOpenings`, `avoidTransitions`
-- Pilar 1: anker → analyse → quiet landing
-- Pilar 2: scene → barnets handling → leksjon som vokser ut
-- Pilar 3: problem → forsøk → hva brøt → konkret leksjon
-- Pilar 4: domene A → domene B → spenningspunkt
-- Myk guidance, ikke harde regler
+**Backup-strategi:**
+- **Innenfor sesjon:** auto-save av samtaler som Pipeline-Draft
+- **Mellom sesjoner:** manuell 📦 Backup-knapp i footer (laster ned JSON)
+- **Hvis Safari ITP wiper data:** importer siste backup-fil
 
-**Article reaction mode:**
-- Modus-toggle i Compose-headeren: **Standard** / **Article reaction**
-- Egne felter: artikkel-URL, artikkel-tekst, din vinkel
-- `buildArticleReactionUserPrompt` med strenge regler mot:
-  - Sammendrag av artikkelen (kun 1-2 setninger referanse)
-  - Oppdiktede sitater eller fakta
-  - Navn/orgs som ikke står i den limte teksten
-- Smart routing: Pipeline-kort med URL i source åpnes automatisk i denne modusen
+### Providere
 
-### Phase 2.5 — polish
+| Provider | Default-modell | Kjøremodus | Kostnad | Kvote |
+|---|---|---|---|---|
+| Ollama | llama3.1:8b | Lokal HTTP, krever brew services | $0 | Ingen |
+| Gemini | gemini-2.0-flash | Gratis tier API | $0 | 15 RPM, 1500/dag (flash) |
+| Claude | claude-sonnet-4-6 | Kreditt-basert API | ~$0.012/utkast | Kun saldo |
 
-**Keyboard shortcuts:**
-- **Cmd+Enter** (eller Ctrl+Enter) i Ghostwriter → trigger Generer
-- **Esc** lukker Voice Profile-drawer
+### Modi
 
-**Dark mode:**
-- 🌙 **Mørkt** / ☀ **Lyst**-toggle i footer
-- Default følger system-preferanse (`prefers-color-scheme`)
-- Lagrer valg i localStorage
-- Alle UI-komponenter inkludert pillar-dots tilpasset begge tema
+```
+Compose-modus:
+├── Standard          → anchor + idea → kort/standard/lang utkast
+└── Article reaction  → URL/tekst + vinkel → reaksjons-utkast
 
-**Vis prompt — kopier-knapper:**
-- "Vis prompt"-knapp viser nå "Kopier"-knapper for både system og user prompt
-- Klikk → kopiert til utklippstavle, "✓ Kopiert"-feedback i 1.5s
+I Article reaction + Gemini:
+└── URL-only (Gemini henter selv via url_context)
 
-**Loading-state forbedring:**
-- Pulserende elapsed-time-teller mens modellen genererer
-- **Avbryt**-knapp som faktisk avbryter via AbortController
-- Avbrutt generering gir ingen feilmelding (ingen alert)
+Conversation-flyt:
+├── Generer           → første draft-turn
+├── Forbedre (↻)      → revisjon med [REVISE THE DRAFT]-markør
+└── Spør (?)          → svar uten å rewrite, [QUESTION]-markør
+```
 
-**Søk i Arkiv:**
-- Tekst-input i Arkiv-tab (samme stil som Pipeline-søk)
-- Filtrerer på tittel + body + notater
+### Voice Profile
 
-### Test-infrastruktur
+- **Stilbeskrivelse** (kort tekst)
+- **Banlist** (~27 fraser default + dine egne)
+- **Regler** (8 default + dine egne)
+- **Eksempler per pilar** (1-5 manuelle, eller auto fra samme pilar)
+- **Tone slider per pilar** (lagres separat per pilar)
+- **Synk-knapp** (merger nye defaults uten å miste customizations)
 
-- `scripts/test-edit-tracker.js` — 12 unit-tester for n-gram diff, alle passerer
-- `scripts/test-prompts.js` utvidet med `--mode article-reaction`
-- `npm run test` kjører alle tester
-- `npm run test:prompts` / `npm run test:edit-tracker` for individuell kjøring
+### Læring fra dine edits
 
-### Cleanup
+Når du redigerer et generert utkast og lagrer til Pipeline, sammenligner
+edit-tracker den genererte vs din endelige versjon:
 
-- `scripts/test-fewshot.py` slettet (engangs-test fra tidlig validering)
-- `seed.js` har `window.SEED_POSTS = SEED_POSTS;` på siste linje (forrige bug-fiks bevart)
+- Strøk fraser → kandidater til banliste (≥3 forekomster = forslag)
+- Tilføyde fraser → kandidater for Voice Profile-utvidelse
+- Lengde-delta → kalibrering av default-lengde
 
-## Hva venter på dine beslutninger
+### Sikkerhet
 
-### Tone slider per pilar
+- **StaticCrypt** krypterer hele bundle på Pages → krever passord
+- **API-nøkler** lagres lokalt, sendes kun direkte til provider
+- **Anthropic browser-kall** bruker `dangerous-direct-browser-access`-flag
+  (akseptabelt for personlig bruk på StaticCrypt-beskyttet origin)
+- **Ingen telemetri** — alt foregår på din maskin eller direkte med
+  provider
 
-Krever at du bestemmer aksene per pilar før implementasjon:
-
-- **Pilar 1:** strategisk ↔ personlig?
-- **Pilar 2:** oppmuntrende ↔ realistisk?
-- **Pilar 3:** detaljert ↔ konseptuelt?
-- **Pilar 4:** norsk-fokusert ↔ globalt?
-
-Min default-forslag i parentes. Du kan også foreslå helt andre akser.
-
-## Bundle-status
-
-- 155 KB ukryptert bundle
-- 12/12 unit-tester passer
-- All JS parser
-- Ingenting pushet til GitHub fra Phase 1+
-
-## Filer du bør se på
-
-| Fil | Hva |
-|---|---|
-| `STATUS.md` (denne) | Sammendrag av hva som er bygget |
-| `NEXT_SESSION.md` | Hva vi skal gjøre i neste sesjon |
-| `PHASE2.md` | Designdokument med tone slider-spec |
-| `GHOSTWRITER.md` | Bruker-guide oppdatert med alle features |
-| `STATICRYPT.md` | Hvordan StaticCrypt-deploy fungerer |
-
-## Kjøremoduser
+## Test-coverage
 
 ```bash
-# Lokal utvikling, ukryptert (anbefalt for skriveøkter med Ghostwriter)
-npm run dev               # http://localhost:8081
-
-# Lokal kryptert (test før push)
-npm run build && npm run serve:dist   # http://localhost:8080
-
-# Tester
-npm run test
-npm run test:prompts -- --mode article-reaction --pillar 4
-
-# Push til prod (deployer Capture/Pipeline/Kalender/Arkiv til Pages,
-# Ghostwriter blokkeres pga HTTPS→HTTP — bevisst arkitektur)
-git add -A && git commit -m "Phase 2 + polish" && git push origin main
+npm run test                # alle 32 tester
+npm run test:edit-tracker   # 12 tester for n-gram diff + suggestions
+npm run test:conversation   # 20 tester for prompt-bygging og selectExamples
+npm run test:prompts        # CLI for å se generert system+user prompt
 ```
+
+Test-områder:
+- ✓ Edit-tracker: findRemovedPhrases, isSubstantialEdit, recordEdit,
+  getBanlistSuggestions, ignorePhrase, getStats, getLengthCalibration, reset
+- ✓ Conversation: type-markører (iterate vs ask), role-mapping,
+  rekkefølge, blanding av modi
+- ✓ Tone instruction: lean low/high/balanced, format, value-clamping
+- ✓ selectExamples: manual override, cap, fallback til andre pilarer
+
+Ikke dekket av automatiske tester (krever browser/DOM):
+- autoSaveDraftToPipeline (men dekket av code-review)
+- Mic-funksjonalitet (krever mikrofon)
+- Auto-retry på 429 (krever live API-feil)
+- UI-interaksjoner (manuell test)
+
+## Kjente begrensninger
+
+1. **Safari ITP wiper localStorage på `michgeid.github.io`** etter ~7
+   dager. Mitigering: bruk Chrome, eller slå av cross-site tracking,
+   eller ta jevnlige backups.
+
+2. **Multiple Ghostwriter-faner** kan opprette duplikate auto-Drafts
+   hvis du genererer i begge samtidig. Sjelden problem.
+
+3. **Manuell redigering av Pipeline-post via Edit-modal mens samme
+   post er aktiv autoDraft** kan overskrives ved neste iterasjon.
+   Lav sannsynlighet.
+
+4. **Gemini 2.5-pro free tier er stram** (5 RPM, 25/dag). For testing-
+   tunge økter, bruk gemini-2.5-flash (10 RPM, 250/dag).
+
+5. **`anthropic-dangerous-direct-browser-access`** eksponerer Claude
+   API-nøkkel til client-side JS. Akseptabel risiko for personlig
+   bruk på StaticCrypt-beskyttet origin.
+
+## Filer i prosjektet
+
+```
+content-brain/
+├── index.html                  (alle tabs, Ghostwriter-panel, footer)
+├── app.js                      (Content Brain-core, ContentBrain-API,
+│                                tema, backup, lås)
+├── style.css                   (alt design, tema-variabler)
+├── seed.js                     (default posts og data)
+├── package.json                (npm scripts: dev, build, test*)
+├── ghostwriter/
+│   ├── api.js                  (3 providers, retry, url_context,
+│   │                            thinking-mode-fix)
+│   ├── prompts.js              (system/user-prompt, templates per pilar,
+│   │                            tone, selectExamples, banlist)
+│   ├── voice-profile.js        (editor, Synk-knapp, Læring-seksjon,
+│   │                            ignored phrases)
+│   ├── edit-tracker.js         (n-gram diff, banlist-forslag,
+│   │                            length-kalibrering)
+│   └── ghostwriter.js          (UI, samtale, auto-save, mic,
+│                                shortcuts, beforeunload)
+├── scripts/
+│   ├── build.js                (bundling + StaticCrypt)
+│   ├── test-edit-tracker.js    (12 tester)
+│   ├── test-conversation.js    (20 tester)
+│   └── test-prompts.js         (CLI for prompt-inspeksjon)
+├── .github/workflows/deploy.yml (auto-deploy til Pages)
+├── STATICRYPT.md               (kryptering-oppsett)
+├── GHOSTWRITER.md              (full bruker-guide)
+├── PHASE2.md                   (designdokument)
+├── CHANGELOG.md                (alle versjoner)
+├── NEXT_SESSION.md             (handover-notat)
+└── STATUS.md                   (denne)
+```
+
+Bundle: ~215 KB (kryptert via StaticCrypt før deploy).

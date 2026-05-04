@@ -222,6 +222,8 @@ textarea { resize: vertical; font-family: inherit; }
 }
 .linkbtn:hover { background: var(--bg-hover); color: var(--text); }
 .linkbtn.danger:hover { color: var(--danger); background: rgba(179,38,30,0.06); }
+.linkbtn.warn { color: #b45309; }   /* amber for "vurder backup" */
+.linkbtn.warn:hover { color: #92400e; background: rgba(180,83,9,0.08); }
 
 /* =========================== filters =========================== */
 
