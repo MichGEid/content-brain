@@ -1,5 +1,76 @@
 # Changelog
 
+## v0.7.8 (2026-05-03 sen kveld) — Sikkerhet på Nullstill + auto-backup-prompt
+
+To små men viktige beskyttelser etter Michels innspill.
+
+### Phrase-typing på "Nullstill"
+
+Tidligere: én OK-klikk slettet alt. Lett å treffe ved feil.
+
+Nå: prompt() krever at du skriver **NULLSTILL** (store bokstaver) eksakt
+for å bekrefte. Alt annet avbryter med tydelig melding.
+
+Standardisert UX-mønster (samme som GitHub bruker for "Delete repo"):
+nok friksjon til å unngå accidentelt klikk, ikke nok til å være
+plagsom hvis du faktisk vil resette.
+
+### Auto-prompt for backup
+
+Banner vises øverst på siden hvis:
+- Siste backup > 7 dager siden, ELLER
+- Backup aldri tatt
+
+Banner har:
+- **📦 Ta backup nå**-knapp (trigger eksisterende backup-flyt)
+- **Senere**-knapp (gjemmer banner til neste sesjon)
+
+Banneret vises kun én gang per sesjon — klikker du Senere, kommer det
+ikke tilbake før neste fane-åpning. Hvis det fortsatt er > 7 dager
+siden siste backup neste gang, dukker det opp igjen.
+
+Browser-policy-rationale: vi kan ikke gjøre auto-download i bakgrunnen
+pålitelig. Banner-prompt er det neste beste — krever ett klikk, men
+gir deg en pålitelig påminnelse uten å være avhengig av browseren-
+gester-policies.
+
+### Filer endret
+
+```
+M  app.js          (NULLSTILL-prompt, performBackup-refactor, banner-logikk)
+M  index.html      (.backup-banner div øverst på siden)
+M  style.css       (.backup-banner stil — amber)
+M  CHANGELOG.md    (denne)
+```
+
+## v0.7.7 (2026-05-03 sen kveld) — UX + 503-håndtering
+
+To små fix-er etter Michels rapportering fra Pages-testing:
+
+### "Generer utkast" konsistent
+
+Knappen sa "Generer reaksjon" i article-reaction-modus og "Generer utkast"
+i standard-modus. Nå alltid "Generer utkast" — handlingen er den samme,
+modus-toggle øverst gir kontekst. UX-konsistens.
+
+### Auto-retry på 503 (Gemini "high demand")
+
+Tidligere bare 429. Michel hit en 503 (Gemini overload), og auto-retry
+trigget ikke fordi den koden bare så på 429.
+
+Nå:
+- 429 + retryDelay → vent og retry
+- **503 (med eller uten retryDelay)** → vent 5 sek default og retry
+- Begge respekterer abort-signal og retry kun én gang
+
+### Filer endret
+
+```
+M  ghostwriter/api.js          (503-håndtering, default 5s backoff)
+M  ghostwriter/ghostwriter.js  ("Generer utkast" alltid)
+M  CHANGELOG.md                (denne)
+```
+
 ## v0.7.6 (2026-05-03 kveld) — Tester, backup-knapp, polish
 
 Fokusert sesjon på robusthet og forsikring etter at Michel oppdaget

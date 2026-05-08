@@ -564,7 +564,7 @@
           ${ui.busy
             ? `<button type="button" id="gw-cancel" class="secondary">Avbryt</button>
                <span class="gw-elapsed" id="gw-elapsed">0.0s</span>`
-            : `<button type="button" id="gw-generate" class="primary" title="Cmd+Enter">${ui.composeMode === "article-reaction" ? "Generer reaksjon" : "Generer utkast"}</button>`}
+            : `<button type="button" id="gw-generate" class="primary" title="Cmd+Enter">Generer utkast</button>`}
         </div>
       </div>
     `;

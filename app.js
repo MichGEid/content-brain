@@ -522,11 +522,22 @@
   });
 
   $("#reset-all").addEventListener("click", () => {
-    if (!confirm("Nullstill all data og last seed-data på nytt?")) return;
+    const typed = prompt(
+      "⚠️ ADVARSEL\n\n" +
+      "Dette sletter ALL data (posts, Voice Profile, edit-tracker-statistikk).\n" +
+      "Pipeline-kortene erstattes av seed-data.\n\n" +
+      "Denne handlingen kan IKKE angres uten en backup.\n\n" +
+      "For å bekrefte, skriv NULLSTILL nedenfor (store bokstaver):"
+    );
+    if (typed !== "NULLSTILL") {
+      if (typed !== null) alert("Avbrutt — du skrev ikke NULLSTILL eksakt.");
+      return;
+    }
     localStorage.removeItem(STORAGE_KEY);
     state = defaultState();
     save();
     rerenderActive();
+    alert("Nullstilling utført. App-en bruker nå seed-data.");
   });
 
   // Tema-toggle: lyst (default) / mørkt. Lagres i localStorage.
@@ -591,7 +602,7 @@
       btn.title = `Siste backup: ${daysStr}`;
     }
   }
-  $("#backup-now").addEventListener("click", () => {
+  function performBackup() {
     // Inkluder all relevant localStorage i backupen, ikke bare contentBrain.v1.
     // Dette dekker Voice Profile, edit-tracker-data, ghostwriter-UI-state,
     // og evnt. ghostwriter.draft (pågående samtale).
@@ -599,7 +610,6 @@
       version: "v0.7-backup",
       exportedAt: new Date().toISOString(),
       contentBrain: state,
-      // Snapshot av relevante ghostwriter-keys
       ghostwriter: {},
     };
     try {
@@ -623,8 +633,52 @@
     }, 100);
     setLastBackupAt(new Date());
     refreshBackupButton();
-  });
+    hideBackupBanner();
+  }
+
+  $("#backup-now").addEventListener("click", performBackup);
   refreshBackupButton();
+
+  // ----------------------------- Auto-prompt backup -----------------------------
+  // Hvis siste backup > 7 dager (eller aldri tatt): vis banner ved sideåpning.
+  // "Senere" gjemmer banner kun for denne sesjonen — kommer tilbake neste gang.
+
+  const BACKUP_BANNER_SESSION_KEY = "contentBrain.backupBannerDismissed";
+
+  function showBackupBannerIfDue() {
+    const banner = $("#backup-banner");
+    if (!banner) return;
+
+    // Hvis brukeren allerede har dismissert banneret denne sesjonen, ikke vis det igjen
+    try {
+      if (sessionStorage.getItem(BACKUP_BANNER_SESSION_KEY) === "1") return;
+    } catch (e) {}
+
+    const last = getLastBackupAt();
+    let textNode = $("#backup-banner-text");
+    if (!last) {
+      textNode.textContent = "📦 Du har aldri tatt backup. En forsikring mot data-tap (Safari ITP, browser-krasj, etc.).";
+      banner.hidden = false;
+      return;
+    }
+    const daysSince = (Date.now() - last.getTime()) / (24 * 60 * 60 * 1000);
+    if (daysSince > 7) {
+      textNode.textContent = `📦 Det er ${Math.round(daysSince)} dager siden siste backup. Anbefales ukentlig som forsikring.`;
+      banner.hidden = false;
+    }
+  }
+
+  function hideBackupBanner() {
+    const banner = $("#backup-banner");
+    if (banner) banner.hidden = true;
+  }
+
+  $("#backup-banner-now").addEventListener("click", performBackup);
+  $("#backup-banner-later").addEventListener("click", () => {
+    try { sessionStorage.setItem(BACKUP_BANNER_SESSION_KEY, "1"); } catch (e) {}
+    hideBackupBanner();
+  });
+  showBackupBannerIfDue();
 
   // Lås-knapp: tømmer StaticCrypt-sesjon og laster siden på nytt.
   // På Pages / encrypted dist: dashbordet krever passord på nytt.

@@ -248,12 +248,16 @@
       if (res.status === 401 || res.status === 403) {
         throw new Error(`Gemini API-nøkkel avvist (${res.status}). Sjekk at nøkkelen er gyldig.`);
       }
-      if (res.status === 429) {
-        // Forsøk å hente retryDelay fra Google sin error-detail
+      if (res.status === 429 || res.status === 503) {
+        // 429 = rate limit (har som regel retryDelay)
+        // 503 = service overloaded (har som regel ikke retryDelay → default backoff)
         const retry = (errBody?.error?.details || [])
           .find(d => d?.["@type"]?.includes("RetryInfo"))?.retryDelay;
         const retryMatch = retry?.match(/(\d+(?:\.\d+)?)\s*s/);
-        const retrySeconds = retryMatch ? parseFloat(retryMatch[1]) : null;
+        // For 503 uten retryDelay: bruk default 5s backoff (Google overload løser seg ofte raskt)
+        const retrySeconds = retryMatch
+          ? parseFloat(retryMatch[1])
+          : (res.status === 503 ? 5 : null);
 
         // Auto-retry én gang hvis ventetid er rimelig (≤ 90s) og vi ikke
         // allerede har retried. Honorer abort-signal.
@@ -262,7 +266,7 @@
           const ms = Math.ceil(retrySeconds * 1000) + 500;   // litt slack
           // Notify UI via custom event så app-en kan vise nedteller
           window.dispatchEvent(new CustomEvent("ghostwriter:rate-limited", {
-            detail: { model, waitMs: ms, retrySeconds },
+            detail: { model, waitMs: ms, retrySeconds, status: res.status },
           }));
           try {
             await waitWithAbort(ms, signal, (remaining) => {
@@ -278,6 +282,10 @@
           return generateGemini({ model, system, prompt, messages, options, signal, useUrlContext, _retryAttempt: 1 });
         }
 
+        // Auto-retry ikke mulig — kast feil med tydelig melding
+        if (res.status === 503) {
+          throw new Error(`Gemini overlastet (503): ${errMsg || "Modellen har høy etterspørsel akkurat nå."} Prøv igjen om litt.`);
+        }
         const retryHint = retry ? ` Foreslått ventetid: ${retry}.` : "";
         const isPro = /pro/i.test(model);
         const limitHint = isPro

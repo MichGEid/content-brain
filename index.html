@@ -7,6 +7,15 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <!-- Backup-påminnelse: vises hvis siste backup > 7 dager (eller aldri tatt) -->
+  <div class="backup-banner" id="backup-banner" hidden>
+    <span class="backup-banner-text" id="backup-banner-text"></span>
+    <span class="backup-banner-actions">
+      <button type="button" class="primary" id="backup-banner-now">📦 Ta backup nå</button>
+      <button type="button" class="linkbtn" id="backup-banner-later">Senere</button>
+    </span>
+  </div>
+
   <header class="topbar">
     <div class="brand">
       <h1>Content Brain</h1>
