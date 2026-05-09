@@ -556,7 +556,7 @@
     },
     gemini: {
       label: "Gemini API",
-      defaultModel: "gemini-2.0-flash",
+      defaultModel: "gemini-2.5-flash",
       generate: generateGemini,
       listModels: listGeminiModels,
       ping: pingGemini,

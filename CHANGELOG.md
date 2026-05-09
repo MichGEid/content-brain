@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.7.10 (2026-05-04) — gemini-2.5-flash som default
+
+Mindre justering: bytte default Gemini-modell fra `gemini-2.0-flash`
+til `gemini-2.5-flash`. 2.5 er nyere generasjon med bedre kvalitet for
+samme hastighet. Free tier-grenser er litt strammere (10 RPM vs 15)
+men auto-retry-håndteringen gjør det praktisk talt umerkelig.
+
+Endring i to steder:
+- `ghostwriter/api.js`: PROVIDERS.gemini.defaultModel
+- `ghostwriter/ghostwriter.js`: smart-default for nye Pages-brukere
+
+Brukere som allerede har lagret en preferanse (`ghostwriter.ui` i
+localStorage) beholder sitt valg. Default treffer kun førstegangsbrukere.
+
 ## v0.7.9 (2026-05-04 morgen) — Bug-fixes etter Pages-testing
 
 Tre konkrete problemer Michel rapporterte fra å bruke Pages i Chrome incognito.

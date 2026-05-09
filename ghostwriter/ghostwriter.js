@@ -25,7 +25,7 @@
   }
 
   const _defaultProvider = defaultProviderForOrigin();
-  const _defaultModel = _defaultProvider === "gemini" ? "gemini-2.0-flash" : "llama3.1:8b";
+  const _defaultModel = _defaultProvider === "gemini" ? "gemini-2.5-flash" : "llama3.1:8b";
 
   const ui = {
     provider: _defaultProvider,
