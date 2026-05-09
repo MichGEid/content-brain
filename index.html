@@ -7,6 +7,17 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <!-- Incognito-advarsel: vises hvis vi detekterer privat fane -->
+  <div class="incognito-banner" id="incognito-banner" hidden>
+    <span class="incognito-banner-text">
+      🕶️ <strong>Privat fane detektert.</strong>
+      Data (posts, API-nøkler, samtaler) slettes når du lukker alle private faner.
+      <strong>Bruk vanlig fane</strong> for persistent lagring, eller
+      <strong>ta backup ofte</strong> via 📦-knappen i footer.
+    </span>
+    <button type="button" class="linkbtn" id="incognito-banner-dismiss">Forstått</button>
+  </div>
+
   <!-- Backup-påminnelse: vises hvis siste backup > 7 dager (eller aldri tatt) -->
   <div class="backup-banner" id="backup-banner" hidden>
     <span class="backup-banner-text" id="backup-banner-text"></span>

@@ -11,9 +11,25 @@
 
   // ----------------------------- state (UI-local) -----------------------------
 
+  /**
+   * Smart default-provider: hvis vi er på HTTPS (typisk Pages-deploy)
+   * og ikke localhost, default til Gemini. Ollama fungerer kun lokalt
+   * (mixed-content), så å starte med Ollama på Pages skaper umiddelbart
+   * forvirring ("blokkert (HTTPS)"-status).
+   */
+  function defaultProviderForOrigin() {
+    const isHttps = location.protocol === "https:";
+    const isLocalhost = ["localhost", "127.0.0.1", ""].includes(location.hostname);
+    if (isHttps && !isLocalhost) return "gemini";
+    return "ollama";
+  }
+
+  const _defaultProvider = defaultProviderForOrigin();
+  const _defaultModel = _defaultProvider === "gemini" ? "gemini-2.0-flash" : "llama3.1:8b";
+
   const ui = {
-    provider: "ollama",
-    model: "llama3.1:8b",
+    provider: _defaultProvider,
+    model: _defaultModel,
     pillar: 1,
     lengthKey: "standard",
     composeMode: "standard",   // "standard" | "article-reaction"

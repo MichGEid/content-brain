@@ -1,5 +1,58 @@
 # Changelog
 
+## v0.7.9 (2026-05-04 morgen) — Bug-fixes etter Pages-testing
+
+Tre konkrete problemer Michel rapporterte fra å bruke Pages i Chrome incognito.
+
+### Importer-funksjonen støtter nytt backup-format
+
+**Bug:** Backup-filer fra v0.7.6+ har struktur `{ contentBrain: {...},
+ghostwriter: {...} }`, men importer-funksjonen sjekket etter `posts`-
+array direkte (gammelt eksport-format). Resultat: "Mangler posts[]"-
+feilmelding på alle backup-filer.
+
+**Fix:** Importer detekterer begge formater nå:
+- v0.7-backup: extracter `contentBrain` som hovedstate, restorer
+  `ghostwriter`-keys (samtaler, edit-statistikk, UI-state) til
+  localStorage
+- Legacy export: bruker som før direkte
+- Tydelig melding om hva som ble importert (antall posts + ghostwriter-
+  keys)
+
+### Smart default provider på HTTPS
+
+**Bug:** Provider defaulter til Ollama, men Ollama er blokkert på HTTPS
+(mixed-content). Førstegangsbrukere på Pages ser umiddelbart "blokkert
+(HTTPS)"-status og må manuelt bytte til Gemini.
+
+**Fix:** `defaultProviderForOrigin()` sjekker location.protocol og
+hostname. Hvis HTTPS og ikke localhost: default til Gemini med
+`gemini-2.0-flash`. Localhost beholder Ollama som default.
+
+### Incognito-deteksjon + advarsel
+
+**Bug:** Bruker var i Chrome incognito uten å skjønne at all localStorage
+slettes når alle private faner lukkes. Trodde data ble borte uten grunn.
+
+**Fix:** På sideåpning sjekker vi `navigator.storage.estimate().quota`.
+Incognito har typisk < 200 MB, vanlig browser flere GB. Hvis quota er
+under terskel: vis indigo-banner med tydelig melding:
+
+> 🕶️ Privat fane detektert. Data slettes når du lukker alle private
+> faner. Bruk vanlig fane for persistent lagring, eller ta backup ofte.
+
+Banner kan dismissas ("Forstått") for sesjonen.
+
+### Filer endret
+
+```
+M  app.js                      (import-multiformat, incognito-deteksjon, banner)
+M  index.html                  (.incognito-banner div)
+M  style.css                   (.incognito-banner stil — indigo)
+M  ghostwriter/ghostwriter.js  (defaultProviderForOrigin)
+M  CHANGELOG.md                (denne)
+```
+
 ## v0.7.8 (2026-05-03 sen kveld) — Sikkerhet på Nullstill + auto-backup-prompt
 
 To små men viktige beskyttelser etter Michels innspill.

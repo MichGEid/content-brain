@@ -509,11 +509,45 @@
     try {
       const text = await file.text();
       const incoming = JSON.parse(text);
-      if (!incoming.posts || !Array.isArray(incoming.posts)) throw new Error("Mangler posts[]");
-      if (!confirm(`Importér ${incoming.posts.length} innlegg? Dette overskriver nåværende state.`)) return;
-      state = incoming;
+
+      // Detekt format:
+      // - v0.7+ backup: { version, exportedAt, contentBrain: {...}, ghostwriter: {...} }
+      // - Legacy/eksport-JSON: { posts: [...], meta: {...}, voiceProfile: {...} }
+      let actualState;
+      let ghostwriterKeys = null;
+
+      if (incoming.contentBrain && typeof incoming.contentBrain === "object") {
+        actualState = incoming.contentBrain;
+        ghostwriterKeys = incoming.ghostwriter || null;
+      } else if (incoming.posts && Array.isArray(incoming.posts)) {
+        actualState = incoming;
+      } else {
+        throw new Error("Ugjenkjennelig fil-format. Forventet enten v0.7-backup eller eksport-JSON.");
+      }
+
+      if (!Array.isArray(actualState.posts)) {
+        throw new Error("Posts-array mangler eller er ikke en array");
+      }
+
+      const ghostwriterCount = ghostwriterKeys ? Object.keys(ghostwriterKeys).length : 0;
+      const ghostwriterSummary = ghostwriterCount > 0
+        ? ` + ${ghostwriterCount} Ghostwriter-keys (samtaler, edit-statistikk, UI-state)`
+        : "";
+
+      if (!confirm(`Importér ${actualState.posts.length} innlegg${ghostwriterSummary}?\n\nDette overskriver nåværende state. API-nøkler påvirkes ikke.`)) return;
+
+      state = actualState;
       save();
+
+      // Restorer Ghostwriter-keys (hvis backup-format)
+      if (ghostwriterKeys) {
+        Object.entries(ghostwriterKeys).forEach(([k, v]) => {
+          try { localStorage.setItem(k, JSON.stringify(v)); } catch (err) {}
+        });
+      }
+
       rerenderActive();
+      alert(`Import vellykket. ${actualState.posts.length} innlegg gjenopprettet${ghostwriterSummary}.`);
     } catch (err) {
       alert("Kunne ikke importere: " + err.message);
     } finally {
@@ -679,6 +713,43 @@
     hideBackupBanner();
   });
   showBackupBannerIfDue();
+
+  // ----------------------------- Incognito-deteksjon -----------------------------
+  // Chromium incognito har lav storage-quota (~120 MB vs flere GB normalt).
+  // Vi sjekker quota og advarer hvis det ser ut som privat fane.
+  // Dette er heuristikk, men pålitelig nok for å gi brukeren en advarsel.
+
+  const INCOGNITO_BANNER_DISMISSED_KEY = "contentBrain.incognitoBannerDismissed";
+
+  async function detectAndWarnIncognito() {
+    if (!navigator.storage || !navigator.storage.estimate) return;
+    try {
+      const { quota } = await navigator.storage.estimate();
+      // Incognito kvote er typisk < 120 MB. Vanlig browser har flere GB.
+      const QUOTA_THRESHOLD = 200_000_000;   // 200 MB grense
+      if (quota && quota < QUOTA_THRESHOLD) {
+        showIncognitoBanner();
+      }
+    } catch (e) {}
+  }
+
+  function showIncognitoBanner() {
+    const banner = $("#incognito-banner");
+    if (!banner) return;
+    // Hvis dismissert i denne sesjonen, ikke vis igjen
+    try {
+      if (sessionStorage.getItem(INCOGNITO_BANNER_DISMISSED_KEY) === "1") return;
+    } catch (e) {}
+    banner.hidden = false;
+  }
+
+  $("#incognito-banner-dismiss").addEventListener("click", () => {
+    try { sessionStorage.setItem(INCOGNITO_BANNER_DISMISSED_KEY, "1"); } catch (e) {}
+    const banner = $("#incognito-banner");
+    if (banner) banner.hidden = true;
+  });
+
+  detectAndWarnIncognito();
 
   // Lås-knapp: tømmer StaticCrypt-sesjon og laster siden på nytt.
   // På Pages / encrypted dist: dashbordet krever passord på nytt.
