@@ -1,6 +1,6 @@
-# Status — Content Brain + Ghostwriter
+# Status — Content Brain + Ghostwriter + Analytics
 
-Sist oppdatert 2026-05-03 (kveld). Versjon: v0.7.5+ med tester og polish.
+Sist oppdatert 2026-05-13. Versjon: v0.8 med Analytics-modulen.
 
 ## Helhetlig status
 
@@ -24,7 +24,11 @@ Sist oppdatert 2026-05-03 (kveld). Versjon: v0.7.5+ med tester og polish.
 │  Phase 7    Datatap-beskyttelse          ✅ Live            │
 │             (auto-Draft til Pipeline,                        │
 │             beforeunload, backup)                            │
-│  Tests      32 unit-tester               ✅ Alle passerer    │
+│  Phase 8    Analytics-modul (CSV-spor)   ✅ Live (2026-05-13)│
+│             CSV import + 4 chart-typer +                     │
+│             engager-klassifisering                           │
+│  Tests      68 unit-tester (32 GW +      ✅ Alle passerer    │
+│             36 Analytics)                                    │
 └────────────────────────────────────────────────────────────┘
 ```
 
@@ -37,6 +41,7 @@ localStorage (per origin):
 ├── contentBrain.v1          → posts, meta, voiceProfile (kjernedata)
 ├── contentBrain.theme       → "light" | "dark"
 ├── contentBrain.lastBackup  → ISO timestamp av siste manuelle backup
+├── contentBrain.analytics   → postMetrics, connections, engagerTags, imports
 ├── ghostwriter.ui           → provider, model, pillar, lengthKey, composeMode, toneByPillar
 ├── ghostwriter.draft        → pågående samtale (anchor, conversation, autoDraftPostId, etc.)
 ├── ghostwriter.apiKeys      → Gemini + Claude API-nøkler

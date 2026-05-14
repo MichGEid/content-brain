@@ -237,30 +237,94 @@
   function renderPillars(container, profile, posts) {
     container.innerHTML = "";
 
+    // Hent topp-performere fra Analytics. Vi returnerer to ting:
+    //   • topMap = ID→rank for posts som ER koblet til Pipeline (gir badges)
+    //   • topList = full liste topp-3 (kan vises read-only selv uten link)
+    function getAnalyticsForPillar(pillar) {
+      const A = window.Analytics;
+      if (!A || !A.hasData || !A.hasData()) return { topMap: new Map(), topList: [] };
+      const top = A.getTopPerformers(pillar, 3) || [];
+      const topMap = new Map();
+      top.forEach((m, idx) => {
+        if (m.linkedPostId) {
+          topMap.set(m.linkedPostId, { rank: idx + 1, engagements: m.engagements, impressions: m.impressions });
+        }
+      });
+      return { topMap, topList: top };
+    }
+
     [1, 2, 3, 4].forEach(pillar => {
-      const pillarPosts = posts.filter(p => p.pillar === pillar);
+      let pillarPosts = posts.filter(p => p.pillar === pillar);
       const selected = new Set(profile.pillars?.[pillar]?.examples || []);
+      const { topMap, topList } = getAnalyticsForPillar(pillar);
+
+      // Sorter: topp-performere først (etter rank), deretter resten
+      pillarPosts = pillarPosts.slice().sort((a, b) => {
+        const ra = topMap.get(a.id)?.rank ?? 999;
+        const rb = topMap.get(b.id)?.rank ?? 999;
+        if (ra !== rb) return ra - rb;
+        return (b.publishedAt || "").localeCompare(a.publishedAt || "");
+      });
 
       const card = document.createElement("div");
       card.className = "vp-pillar-card";
+
+      // Read-only Analytics-topp-liste: vises ALLTID når Analytics har data
+      // for denne pilaren, uavhengig av om de er koblet til Pipeline.
+      // Hjelper både demo-flyten og reelle tilfeller der LinkedIn-poster
+      // ikke matchet Pipeline (f.eks. innlegg laget direkte på LinkedIn).
+      const analyticsTopHtml = topList.length > 0
+        ? `
+          <div class="vp-analytics-top">
+            <div class="vp-analytics-top-head">
+              <span>📊 Topp ${topList.length} fra Analytics</span>
+              <span class="muted small">${topList.filter(m => m.linkedPostId).length} av ${topList.length} koblet til Pipeline</span>
+            </div>
+            <ol class="vp-analytics-top-list">
+              ${topList.map((m, idx) => `
+                <li class="vp-analytics-top-item ${m.linkedPostId ? "linked" : "unlinked"}">
+                  <span class="vp-analytics-rank">#${idx + 1}</span>
+                  <span class="vp-analytics-content">${escapeHtml((m.content || "").slice(0, 110))}${(m.content || "").length > 110 ? "…" : ""}</span>
+                  <span class="vp-analytics-metric muted small">${m.engagements} engasjement · ${m.impressions} visn.</span>
+                  ${m.linkedPostId
+                    ? '<span class="vp-analytics-link-badge" title="Koblet til en Pipeline-post — vises som #N i listen under">✓ i Pipeline</span>'
+                    : '<span class="vp-analytics-link-badge unlinked" title="Ikke koblet til Pipeline. Bruk &quot;🔗 Link til Pipeline&quot; i Analytics-tab hvis du vil at den skal kobles.">ikke i Pipeline</span>'
+                  }
+                </li>
+              `).join("")}
+            </ol>
+          </div>
+        `
+        : "";
+
       card.innerHTML = `
         <h4>
           <span class="dot p${pillar}"></span>
           Pilar ${pillar} — ${PILLAR_INFO[pillar].label}
         </h4>
         <p class="muted small">${escapeHtml(PILLAR_INFO[pillar].tone)}</p>
-        ${pillarPosts.length === 0
-          ? `<p class="muted small">Ingen publiserte innlegg i denne pilaren ennå.</p>`
-          : pillarPosts.map(p => `
-              <label class="vp-example">
-                <input type="checkbox" data-pillar="${pillar}" data-id="${escapeHtml(p.id)}" ${selected.has(p.id) ? "checked" : ""}/>
-                <span class="vp-example-text">
-                  <span class="vp-example-title">${escapeHtml(p.title || "(untitled)")}</span>
-                  <span class="vp-example-body muted small">${escapeHtml((p.body || "").slice(0, 80))}…</span>
-                </span>
-              </label>
-            `).join("")
-        }
+        ${analyticsTopHtml}
+        <div class="vp-pipeline-section">
+          <p class="vp-section-label muted small">Publiserte innlegg i Pipeline — hak av 1-3 som few-shot eksempler:</p>
+          ${pillarPosts.length === 0
+            ? `<p class="muted small">Ingen publiserte innlegg i denne pilaren ennå.</p>`
+            : pillarPosts.map(p => {
+                const top = topMap.get(p.id);
+                const badge = top
+                  ? `<span class="vp-top-badge" title="${top.engagements} engasjement / ${top.impressions} visninger">📊 #${top.rank}</span>`
+                  : "";
+                return `
+                  <label class="vp-example ${top ? "vp-example-top" : ""}">
+                    <input type="checkbox" data-pillar="${pillar}" data-id="${escapeHtml(p.id)}" ${selected.has(p.id) ? "checked" : ""}/>
+                    <span class="vp-example-text">
+                      <span class="vp-example-title">${escapeHtml(p.title || "(untitled)")} ${badge}</span>
+                      <span class="vp-example-body muted small">${escapeHtml((p.body || "").slice(0, 80))}…</span>
+                    </span>
+                  </label>
+                `;
+              }).join("")
+          }
+        </div>
       `;
       container.appendChild(card);
     });

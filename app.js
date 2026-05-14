@@ -144,6 +144,7 @@
     if (name === "archive")     renderArchive();
     if (name === "capture")     renderCaptureRecent();
     if (name === "ghostwriter" && window.Ghostwriter?.init) window.Ghostwriter.init();
+    if (name === "analytics"   && window.Analytics?.init)   window.Analytics.init();
   }
 
   $$(".tab").forEach(t => t.addEventListener("click", () => activateTab(t.dataset.tab)));
@@ -546,6 +547,11 @@
         });
       }
 
+      // Restorer analytics (hvis i backup-format)
+      if (incoming.analytics) {
+        try { localStorage.setItem("contentBrain.analytics", JSON.stringify(incoming.analytics)); } catch (err) {}
+      }
+
       rerenderActive();
       alert(`Import vellykket. ${actualState.posts.length} innlegg gjenopprettet${ghostwriterSummary}.`);
     } catch (err) {
@@ -568,6 +574,7 @@
       return;
     }
     localStorage.removeItem(STORAGE_KEY);
+    try { localStorage.removeItem("contentBrain.analytics"); } catch (e) {}
     state = defaultState();
     save();
     rerenderActive();
@@ -645,12 +652,17 @@
       exportedAt: new Date().toISOString(),
       contentBrain: state,
       ghostwriter: {},
+      analytics: null,
     };
     try {
       ["ghostwriter.editLearning", "ghostwriter.ui", "ghostwriter.draft"].forEach(k => {
         const v = localStorage.getItem(k);
         if (v) backup.ghostwriter[k] = JSON.parse(v);
       });
+    } catch (e) {}
+    try {
+      const aRaw = localStorage.getItem("contentBrain.analytics");
+      if (aRaw) backup.analytics = JSON.parse(aRaw);
     } catch (e) {}
     // API-nøkler eksluderes BEVISST — sikkerhet
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });

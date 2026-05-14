@@ -51,6 +51,18 @@ const GHOSTWRITER_MODULES = [
   "ghostwriter/ghostwriter.js",
 ];
 
+// Analytics-moduler. Rekkefølgen er viktig:
+//   csv-parser → analytics-store → classifier → dashboard → analytics
+// analytics.js er orchestrator og bruker alle andre.
+const ANALYTICS_MODULES = [
+  "analytics/csv-parser.js",
+  "analytics/analytics-store.js",
+  "analytics/classifier.js",
+  "analytics/dashboard.js",
+  "analytics/demo-data.js",
+  "analytics/analytics.js",
+];
+
 const DIST = path.join(ROOT, "dist");
 const BUNDLED_HTML = path.join(DIST, "index.html");
 
@@ -80,6 +92,10 @@ const ghostwriterModules = GHOSTWRITER_MODULES.map(rel => ({
   rel,
   content: read(path.join(ROOT, rel)),
 }));
+const analyticsModules = ANALYTICS_MODULES.map(rel => ({
+  rel,
+  content: read(path.join(ROOT, rel)),
+}));
 
 // VIKTIG: bruker callback-formen av .replace() slik at `$`-tegn i kildekoden
 // (f.eks. `$$`) ikke tolkes som spesielle replace-mønstre.
@@ -99,6 +115,11 @@ const wrapAsInline = (label, body) =>
 const scriptReplacements = [
   { re: /<script\s+src=["']seed\.js["']><\/script>/i,                        label: "seed.js",                  body: () => seedJs },
   ...ghostwriterModules.map(m => ({
+    re: new RegExp(`<script\\s+src=["']${m.rel.replace(/[/.]/g, c => "\\" + c)}["']><\\/script>`, "i"),
+    label: m.rel,
+    body: () => m.content,
+  })),
+  ...analyticsModules.map(m => ({
     re: new RegExp(`<script\\s+src=["']${m.rel.replace(/[/.]/g, c => "\\" + c)}["']><\\/script>`, "i"),
     label: m.rel,
     body: () => m.content,

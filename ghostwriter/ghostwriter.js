@@ -569,6 +569,8 @@
 
         ${renderToneSlider()}
 
+        ${renderAnalyticsHint()}
+
         ${ui.composeMode === "article-reaction"
           ? renderArticleReactionFields()
           : renderStandardFields()}
@@ -696,6 +698,46 @@
           <span class="gw-tone-label-low">${escapeHtml(axis.low)}</span>
           <span class="gw-tone-label-high">${escapeHtml(axis.high)}</span>
         </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Analytics-drevet hint: vis info om hvordan denne pilaren har performet
+   * siste 8 uker hvis Analytics-modulen har data. Pille over Anker-input.
+   * Aldri høyere enn én linje, alltid actionable.
+   */
+  function renderAnalyticsHint() {
+    const A = window.Analytics;
+    if (!A || !A.hasData || !A.hasData()) return "";
+    const perf = A.getPillarPerformance({ sinceDays: 56 });
+    if (!perf || !perf.byPillar) return "";
+    const me = perf.byPillar[ui.pillar];
+    if (!me || me.count === 0) {
+      return `
+        <div class="gw-analytics-hint gw-analytics-hint-neutral">
+          <span class="muted small">📊 Ingen analytics-data for Pilar ${ui.pillar} de siste 8 ukene.</span>
+        </div>
+      `;
+    }
+
+    const vsAllPct = Math.round(me.vsAll * 100);
+    let mood = "neutral", icon = "📊", text = "";
+    if (vsAllPct >= 20) {
+      mood = "good";
+      icon = "📈";
+      text = `Pilar ${ui.pillar} har truffet <strong>${vsAllPct}% over snitt</strong> siste 8 uker (${me.count} innlegg, ${me.avg} engasjement/innlegg). Bra rotasjons-timing.`;
+    } else if (vsAllPct <= -15) {
+      mood = "warn";
+      icon = "📉";
+      text = `Pilar ${ui.pillar} har ligget <strong>${Math.abs(vsAllPct)}% under snitt</strong> siste 8 uker. Vurder en sterkere vinkling — eller hopp denne uken hvis ideen ikke sitter.`;
+    } else {
+      mood = "neutral";
+      text = `Pilar ${ui.pillar}: ${me.count} innlegg siste 8 uker, snitt ${me.avg} engasjement (${vsAllPct >= 0 ? "+" : ""}${vsAllPct}% vs alle pilarer).`;
+    }
+    return `
+      <div class="gw-analytics-hint gw-analytics-hint-${mood}">
+        <span>${icon} ${text}</span>
       </div>
     `;
   }

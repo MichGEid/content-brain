@@ -9,10 +9,11 @@
     "encrypt:local": "node scripts/build.js",
     "serve:dist": "npx --yes http-server dist -p 8080 -c-1",
     "dev": "npx --yes http-server . -p 8081 -c-1 --cors",
-    "test": "node scripts/test-edit-tracker.js && node scripts/test-conversation.js && node scripts/test-prompts.js --json > /dev/null && echo '✓ all tests passed'",
+    "test": "node scripts/test-edit-tracker.js && node scripts/test-conversation.js && node scripts/test-analytics.js && node scripts/test-prompts.js --json > /dev/null && echo '✓ all tests passed'",
     "test:prompts": "node scripts/test-prompts.js",
     "test:edit-tracker": "node scripts/test-edit-tracker.js",
-    "test:conversation": "node scripts/test-conversation.js"
+    "test:conversation": "node scripts/test-conversation.js",
+    "test:analytics": "node scripts/test-analytics.js"
   },
   "devDependencies": {
     "staticrypt": "^3.4.0"

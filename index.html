@@ -36,6 +36,7 @@
       <button class="tab active" data-tab="capture" role="tab">Capture</button>
       <button class="tab" data-tab="pipeline" role="tab">Pipeline</button>
       <button class="tab" data-tab="ghostwriter" role="tab">Ghostwriter</button>
+      <button class="tab" data-tab="analytics" role="tab">📊 Analytics</button>
       <button class="tab" data-tab="calendar" role="tab">Kalender</button>
       <button class="tab" data-tab="archive" role="tab">Arkiv</button>
     </nav>
@@ -142,6 +143,11 @@
     <!-- ========================================== GHOSTWRITER ========================================== -->
     <section id="ghostwriter" class="panel">
       <!-- Innhold rendres dynamisk av ghostwriter/ghostwriter.js -->
+    </section>
+
+    <!-- ========================================== ANALYTICS ========================================== -->
+    <section id="analytics" class="panel">
+      <!-- Innhold rendres dynamisk av analytics/analytics.js -->
     </section>
 
     <!-- ========================================== CALENDAR ========================================== -->
@@ -286,6 +292,12 @@
   <script src="ghostwriter/edit-tracker.js"></script>
   <script src="ghostwriter/voice-profile.js"></script>
   <script src="ghostwriter/ghostwriter.js"></script>
+  <script src="analytics/csv-parser.js"></script>
+  <script src="analytics/analytics-store.js"></script>
+  <script src="analytics/classifier.js"></script>
+  <script src="analytics/dashboard.js"></script>
+  <script src="analytics/demo-data.js"></script>
+  <script src="analytics/analytics.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
