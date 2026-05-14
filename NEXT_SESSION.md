@@ -41,12 +41,14 @@ Bundle: 312 KB (var 218 KB før Analytics).
 ### 3. Når du er klar med ekte data (kan ta tid)
 
 1. LinkedIn → Settings & Privacy → Data privacy → **Get a copy of your data**
-2. Velg "Want something in particular": hak av **Posts**, **Comments**, **Connections**
-3. Vent på e-post (10 min - 24 t)
-4. Last ned ZIP, hent ut .csv-filene
-5. Analytics-tab → Importér → drag/drop alle .csv-filene
-6. Klikk **🔗 Link til Pipeline** så ekte innlegg får pilar-tagging
-7. Slett demo-data først via **Slett all analytics-data**-knapp i Importér-tab hvis ønskelig
+2. Velg **den øverste radioknappen**: "Download larger data archive, including connections, verifications, contacts, account history…"
+   - ⚠️ IKKE "Want something in particular" — den ruten gir bare Articles/Invitations/Profile/Recommendations/Registration, ingen av filene vi trenger
+3. Klikk **Request archive** (LinkedIn ber deg sannsynligvis bekrefte passord)
+4. Vent på e-post (10 min – 24 t, ofte raskere). Nedlastings-lenken gjelder ~72 t, så ikke vent for lenge
+5. Last ned ZIP, hent ut .csv-filene
+6. Slett demo-data først hvis du har det inne: Analytics → Importér → **Slett all analytics-data**
+7. Analytics-tab → Importér → drag/drop `Shares.csv`, `Comments.csv`, `Connections.csv` (de andre CSV-filene fra arkivet kan ignoreres)
+8. Klikk **🔗 Link til Pipeline** så ekte innlegg får pilar-tagging
 
 ### 4. Push til GitHub
 

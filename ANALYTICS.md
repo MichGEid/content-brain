@@ -6,9 +6,11 @@
 
 For å lukke loopen mellom innholdsproduksjon (Ghostwriter, Pipeline) og målbar effekt på LinkedIn. Vi har ingen offentlig API mot personlige LinkedIn-sider, så vi går via LinkedIns dataeksport:
 
-> **Settings & Privacy → Data privacy → Get a copy of your data → "Want something in particular" → hak av Posts, Comments, Connections.**
+> **Settings & Privacy → Data privacy → Get a copy of your data → velg "Download larger data archive" (den øverste radioknappen) → Request archive.**
 
-Filene kommer som .csv i en ZIP i løpet av ~10 minutter til 24 timer. Last opp i Analytics-tab → Importér.
+Den nedre "Want something in particular"-ruten gir IKKE de filene vi trenger (Shares/Posts, Comments, Connections) — den lar deg bare laste ned Articles/Invitations/Profile/Recommendations/Registration som ikke har metrics. Den øverste ruten gir det fulle arkivet med alt vi trenger.
+
+Filene kommer som .csv i en ZIP i løpet av 10 min – 24 t (varierer mye, men ofte raskere enn estimatet). Last opp `Shares.csv` + `Comments.csv` + `Connections.csv` i Analytics-tab → Importér. Resten kan du ignorere.
 
 ## Arkitektur
 

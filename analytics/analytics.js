@@ -136,8 +136,9 @@
             <h3>Importér LinkedIn-data</h3>
             <p>
               Eksportér via LinkedIn → <em>Settings &amp; Privacy → Data privacy → Get a copy of your data</em>.
-              Velg "Want something in particular?" og hak av <strong>Posts</strong>, <strong>Comments</strong>, <strong>Connections</strong>.
-              Filene kommer som .csv i en ZIP. Slipp dem her — vi auto-detekterer format.
+              Velg <strong>"Download larger data archive"</strong> (den øverste radioknappen) — ikke "Want something in particular", den gir bare Articles/Profile/Invitations og mangler de filene vi trenger.
+              Filene kommer som .csv i en ZIP via e-post (10 min – 24 t).
+              Slipp <strong>Shares.csv</strong>, <strong>Comments.csv</strong> og <strong>Connections.csv</strong> her — vi auto-detekterer format og ignorerer resten.
             </p>
 
             <div class="analytics-dropzone" id="analytics-dropzone">
