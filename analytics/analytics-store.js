@@ -11,7 +11,7 @@
                           impressions, likes, comments, shares,
                           engagements, engagementRate, linkedPostId }],
        connections:   [{ name, headline, company, connectedAt }],
-       engagerTags:   { "<lowercase name>": "peer"|"recruit"|"board"|"prospect"|"other" },
+       engagerTags:   { "<lowercase name>": "peer"|"recruiter"|"board"|"prospect"|"other" },
        imports:       [{ at, format, count, filename }],
        lastImportAt:  isoString
      }

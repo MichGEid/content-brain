@@ -189,8 +189,18 @@ test("classifyByHeadline: 'Director of X' → peer", () => {
   assert.strictEqual(classifier.classifyByHeadline("Director of Digital Health", "Acme"), "peer");
 });
 
-test("classifyByHeadline: 'Senior Software Engineer' → recruit", () => {
-  assert.strictEqual(classifier.classifyByHeadline("Senior Software Engineer", "Foo"), "recruit");
+test("classifyByHeadline: 'Headhunter — Tech Leadership' → recruiter", () => {
+  assert.strictEqual(classifier.classifyByHeadline("Headhunter — Tech Leadership", "Bonum Search"), "recruiter");
+});
+
+test("classifyByHeadline: 'Talent Acquisition Partner' → recruiter", () => {
+  assert.strictEqual(classifier.classifyByHeadline("Senior Talent Acquisition Partner", "Stanton Chase"), "recruiter");
+});
+
+test("classifyByHeadline: IC-engineer ('Senior Software Engineer') faller nå til null (var recruit før)", () => {
+  // Etter refaktor er recruit-kategorien for hodejegere, ikke IC-engineers.
+  // IC-titler havner i 'other' via getCategory, eller null fra classifyByHeadline.
+  assert.strictEqual(classifier.classifyByHeadline("Senior Software Engineer", "Foo"), null);
 });
 
 test("classifyByHeadline: 'Chairman of the Board' → board", () => {
@@ -236,13 +246,13 @@ test("breakdownByCategory: aggregerer per kategori", () => {
   const state = store.emptyState();
   state.connections = [
     { name: "A", headline: "Director", company: "" },
-    { name: "B", headline: "Senior Software Engineer", company: "" },
+    { name: "B", headline: "Headhunter", company: "Bonum Search" },
     { name: "C", headline: "CTO", company: "" },
     { name: "D", headline: "Hobbyist", company: "" },
   ];
   const b = classifier.breakdownByCategory(state);
   assert.strictEqual(b.peer, 2);
-  assert.strictEqual(b.recruit, 1);
+  assert.strictEqual(b.recruiter, 1);
   assert.strictEqual(b.other, 1);
 });
 
@@ -385,14 +395,14 @@ test("generateConnections: lager 30 connections med navn, headline og dato", () 
 
 test("generateConnections: navn dekker alle 5 klassifiserings-buckets", () => {
   const conns = demo.generateConnections();
-  const buckets = { peer: 0, recruit: 0, board: 0, prospect: 0, other: 0 };
+  const buckets = { peer: 0, recruiter: 0, board: 0, prospect: 0, other: 0 };
   conns.forEach(c => {
     const cat = classifier.classifyByHeadline(c.headline, c.company) || "other";
     buckets[cat]++;
   });
   // Vi forventer minst én av hver
   assert.ok(buckets.peer >= 3,     `peer=${buckets.peer}`);
-  assert.ok(buckets.recruit >= 3,  `recruit=${buckets.recruit}`);
+  assert.ok(buckets.recruiter >= 3,  `recruiter=${buckets.recruiter}`);
   assert.ok(buckets.board >= 3,    `board=${buckets.board}`);
   assert.ok(buckets.prospect >= 3, `prospect=${buckets.prospect}`);
   assert.ok(buckets.other >= 1,    `other=${buckets.other}`);

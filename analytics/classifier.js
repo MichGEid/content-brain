@@ -2,12 +2,13 @@
    Content Brain — analytics/classifier.js
    Heuristisk klassifisering av engagers basert på tittel + firma.
 
-   Fire kategorier som speiler Michels målgruppe:
+   Fire kategorier som speiler Michels målgruppe (per project-instructions:
+   "peers, potensielle rekrutter, fremtidige arbeidsgivere/styreposisjoner"):
      • peer       — andre Director/CXO/Head of, helst i medtech/healthtech
-     • recruit    — IC-ingeniører, lead engineers, tech leads
+     • recruiter  — hodejegere, talent acquisition, recruiters — folk som kan ansette HAM
      • board      — styremedlemmer, investorer, advisors
      • prospect   — kunder, helseregioner, sykehus, distributører
-     • other      — fallback når ingenting matcher
+     • other      — fallback når ingenting matcher (inkl. IC-engineers)
 
    Filosofi: enkel regex-stack, ingen ML. Bommer den, kan brukeren
    override-e via UI og override-en lagres permanent.
@@ -28,16 +29,17 @@
     { cat: "prospect", pattern: /\b(distributor|reseller|partner manager|procurement|innkjøper)\b/i },
     { cat: "prospect", pattern: /\b(medical director|chief medical|chief nursing|cmio|cmo)\b/i },
 
+    // RECRUITER — sjekkes FØR peer, fordi "Talent Acquisition Partner"
+    // skal ikke fanges av peer-regelen som matcher "Partner" generelt.
+    { cat: "recruiter", pattern: /\b(recruiter|recruitment|rekrutterer|rekrutterings\s*konsulent|rekrutteringskonsulent|head\s*hunter|headhunter|hodejeger)\b/i },
+    { cat: "recruiter", pattern: /\b(talent\s*acquisition|talent\s*partner|talent\s*manager|talent\s*sourcer|talent\s*scout|talent\s*lead)\b/i },
+    { cat: "recruiter", pattern: /\b(executive\s*search|search\s*consultant|search\s*partner|search\s*firm)\b/i },
+    { cat: "recruiter", pattern: /\b(staffing|people\s*partner|people\s*operations|talent\s*ops|talent\s*operations|hr\s*business\s*partner|hrbp)\b/i },
+
     // PEER — senior leadership i tech/medtech
     { cat: "peer", pattern: /\b(director|head of|vp |vice president|svp|evp|chief|cto|ceo|cio|cpo|coo|cfo|chro|cso|cmo)\b/i },
-    { cat: "peer", pattern: /\b(partner|managing director|fag\s*ansvarlig|fagansvarlig|fagleder|teknologi\s*direktør|teknologidirektør)\b/i },
+    { cat: "peer", pattern: /\b(managing\s*partner|managing director|fag\s*ansvarlig|fagansvarlig|fagleder|teknologi\s*direktør|teknologidirektør)\b/i },
     { cat: "peer", pattern: /\b(founder|co-founder|gründer|grunder)\b/i },
-
-    // RECRUIT — IC-engineers, leads
-    { cat: "recruit", pattern: /\b(senior\s+(software|engineer|developer)|staff engineer|principal engineer|lead engineer|tech\s*lead|teknisk\s*leder)\b/i },
-    { cat: "recruit", pattern: /\b(software (engineer|developer)|backend|frontend|fullstack|full\s*stack|devops|sre|platform engineer|data engineer|ml engineer|ai engineer|machine learning engineer)\b/i },
-    { cat: "recruit", pattern: /\b(engineering manager|director of engineering)\b/i },
-    { cat: "recruit", pattern: /\b(utvikler|systemutvikler|programmerer|løsningsarkitekt|solution architect|software architect)\b/i },
   ];
 
   // Selskaper / domener som biaser mot prospect (helse) eller peer (medtech-økosystem)
@@ -108,7 +110,7 @@
    * Aggregerer breakdown per kategori.
    */
   function breakdownByCategory(state) {
-    const counts = { peer: 0, recruit: 0, board: 0, prospect: 0, other: 0 };
+    const counts = { peer: 0, recruiter: 0, board: 0, prospect: 0, other: 0 };
     for (const c of state.connections) {
       const cat = getCategory(state, c.name, c.headline, c.company);
       counts[cat] = (counts[cat] || 0) + 1;

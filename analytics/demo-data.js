@@ -115,15 +115,15 @@
     { name: "Sara Lindqvist",     headline: "Director, Regulatory Affairs", company: "Abbott" },
     { name: "Tobias Andersen",    headline: "VP Software",                company: "Baxter" },
 
-    // recruits (IC engineers, leads)
-    { name: "Henrik Solberg",     headline: "Senior Software Engineer",   company: "Cognite" },
-    { name: "Maria Costa",        headline: "Staff Engineer",             company: "Visma" },
-    { name: "Tom Olsen",          headline: "Tech Lead",                  company: "Schibsted" },
-    { name: "Yusuf Demir",        headline: "Principal Engineer",         company: "Equinor Digital" },
-    { name: "Jonas Eide",         headline: "Software Architect",         company: "Sopra Steria" },
-    { name: "Anna Nilsson",       headline: "Engineering Manager",        company: "Klarna" },
-    { name: "Ravi Patel",         headline: "Senior Software Developer",  company: "DNB Tech" },
-    { name: "Mikkel Larsen",      headline: "Backend Engineer",           company: "Vipps" },
+    // recruiters (hodejegere, talent acquisition)
+    { name: "Henrik Solberg",     headline: "Senior Talent Acquisition Partner", company: "Stanton Chase" },
+    { name: "Maria Costa",        headline: "Executive Search Consultant",       company: "Heidrick & Struggles" },
+    { name: "Tom Olsen",          headline: "Headhunter — Tech Leadership",      company: "Bonum Search" },
+    { name: "Yusuf Demir",        headline: "Recruiter",                         company: "Egon Zehnder" },
+    { name: "Jonas Eide",         headline: "Talent Partner",                    company: "Mercuri Urval" },
+    { name: "Anna Nilsson",       headline: "HR Business Partner",               company: "Visma" },
+    { name: "Ravi Patel",         headline: "Talent Acquisition Lead",           company: "Equinor" },
+    { name: "Mikkel Larsen",      headline: "Search Consultant",                 company: "Korn Ferry" },
 
     // board (investors, board members, advisors)
     { name: "Anna Berg",          headline: "Investor",                   company: "Independent" },

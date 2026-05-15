@@ -80,27 +80,37 @@
       const label = truncate(m.content || m.url || "(uten tekst)", 38);
       const dateLabel = m.date ? fmtDate(m.date) : "";
 
-      svg.appendChild(el("text", {
+      // Klikkbar gruppe for hele raden
+      const group = el("g", { class: "analytics-bar-group", "data-id": m.id || "" });
+
+      // Usynlig "treff-rektangel" som dekker hele raden — gjør hele radien klikkbar
+      group.appendChild(el("rect", {
+        x: 0, y: y - 4, width: W, height: barH + 8, fill: "transparent", class: "analytics-bar-hit",
+      }));
+
+      group.appendChild(el("text", {
         x: padL - 12, y: y + barH / 2 + 4, "text-anchor": "end",
         class: "analytics-axis-label",
       }, label));
 
       if (dateLabel) {
-        svg.appendChild(el("text", {
+        group.appendChild(el("text", {
           x: padL - 12, y: y + barH / 2 + 16, "text-anchor": "end",
           class: "analytics-axis-meta",
         }, dateLabel));
       }
 
-      svg.appendChild(el("rect", {
+      group.appendChild(el("rect", {
         x: padL, y, width: w, height: barH,
         rx: 4, class: `analytics-bar ${pillarClassFor(m)}`,
       }));
 
-      svg.appendChild(el("text", {
+      group.appendChild(el("text", {
         x: padL + w + 8, y: y + barH / 2 + 4,
         class: "analytics-axis-label",
       }, fmtNum(v)));
+
+      svg.appendChild(group);
     });
 
     node.appendChild(svg);
@@ -321,7 +331,7 @@
         <td class="muted small">${escapeHtml(c.company || "")}</td>
         <td>
           <select class="analytics-cat-select" data-name="${escapeHtml(c.name)}">
-            ${["peer","recruit","board","prospect","other"].map(cat =>
+            ${["peer","recruiter","board","prospect","other"].map(cat =>
               `<option value="${cat}" ${cat === c.category ? "selected" : ""}>${cat}</option>`
             ).join("")}
           </select>
@@ -345,7 +355,7 @@
     if (!total) { node.innerHTML = ""; return; }
     const labels = {
       peer: "Peers (Director+)",
-      recruit: "Potensielle rekrutter",
+      recruiter: "Hodejegere / rekrutterere",
       board: "Styre / investorer",
       prospect: "Prospects / kunder",
       other: "Andre",

@@ -13,15 +13,36 @@
   let initialized = false;
   let state = null;
 
-  // Lokal UI-state (ikke persistert i analytics-store; for filtre/sort).
-  const ui = {
+  // Lokal UI-state. Persisteres i localStorage så valg overlever reload.
+  const UI_STATE_KEY = "contentBrain.analytics.ui";
+  const defaultUi = () => ({
     metric: "engagements",       // engagements | impressions | likes | comments
     topN: 10,
-    catFilter: null,             // null | "peer" | "recruit" | "board" | "prospect" | "other"
+    catFilter: null,             // null | "peer" | "recruiter" | "board" | "prospect" | "other"
     subTab: "overview",          // overview | engagers | patterns | metrics | import
-    metricsFilter: "missing",    // all | missing | has — default til "missing" så brukeren ser jobben som gjenstår
+    metricsFilter: "missing",    // all | missing | has
     metricsSort: "date-desc",
-  };
+    dateRange: "all",            // 7d | 30d | 90d | 365d | all
+  });
+  let ui = defaultUi();
+  try {
+    const raw = localStorage.getItem(UI_STATE_KEY);
+    if (raw) Object.assign(ui, JSON.parse(raw));
+  } catch (e) {}
+  function saveUi() {
+    try { localStorage.setItem(UI_STATE_KEY, JSON.stringify(ui)); } catch (e) {}
+  }
+
+  function filterByDateRange(metrics) {
+    if (!ui.dateRange || ui.dateRange === "all") return metrics;
+    const days = { "7d": 7, "30d": 30, "90d": 90, "365d": 365 }[ui.dateRange];
+    if (!days) return metrics;
+    const cutoff = Date.now() - days * 86400000;
+    return metrics.filter(m => {
+      if (!m.date) return true;
+      return new Date(m.date).getTime() >= cutoff;
+    });
+  }
 
   function getStores() {
     return {
@@ -67,6 +88,14 @@
         <button class="subtab" data-sub="import" role="tab">Importér</button>
       </nav>
 
+      <div class="analytics-post-modal" id="analytics-post-modal" hidden>
+        <div class="analytics-post-modal-backdrop" id="analytics-post-modal-backdrop"></div>
+        <div class="analytics-post-modal-card" role="dialog" aria-modal="true">
+          <button class="analytics-post-modal-close" id="analytics-post-modal-close" aria-label="Lukk">×</button>
+          <div id="analytics-post-modal-content"></div>
+        </div>
+      </div>
+
       <div class="analytics-body">
         <section class="analytics-sub" data-sub="overview">
           <div class="analytics-toolbar">
@@ -77,6 +106,16 @@
                 <option value="impressions">Visninger</option>
                 <option value="likes">Likes</option>
                 <option value="comments">Kommentarer</option>
+              </select>
+            </label>
+            <label>
+              <span>Periode</span>
+              <select id="analytics-date-range">
+                <option value="7d">Siste 7 dager</option>
+                <option value="30d">Siste 30 dager</option>
+                <option value="90d">Siste 90 dager</option>
+                <option value="365d">I år (365 dager)</option>
+                <option value="all">Alt</option>
               </select>
             </label>
             <button class="linkbtn" id="analytics-link-pipeline" title="Match metrics mot Pipeline-poster så pilar-info propagerer">🔗 Link til Pipeline</button>
@@ -104,7 +143,7 @@
             <div class="chips" id="analytics-cat-filter">
               <button class="chip active" data-cat="all">Alle</button>
               <button class="chip" data-cat="peer">Peers</button>
-              <button class="chip" data-cat="recruit">Rekrutter</button>
+              <button class="chip" data-cat="recruiter">Hodejegere</button>
               <button class="chip" data-cat="board">Styre</button>
               <button class="chip" data-cat="prospect">Prospects</button>
               <button class="chip" data-cat="other">Andre</button>
@@ -213,6 +252,16 @@
       metricSel.value = ui.metric;
       metricSel.addEventListener("change", () => {
         ui.metric = metricSel.value;
+        saveUi();
+        renderOverview();
+      });
+    }
+    const dateSel = document.getElementById("analytics-date-range");
+    if (dateSel) {
+      dateSel.value = ui.dateRange;
+      dateSel.addEventListener("change", () => {
+        ui.dateRange = dateSel.value;
+        saveUi();
         renderOverview();
       });
     }
@@ -239,11 +288,102 @@
 
     // Metrics filter + sort
     const mfilter = document.getElementById("analytics-metrics-filter");
-    if (mfilter) mfilter.addEventListener("change", () => { ui.metricsFilter = mfilter.value; renderMetricsTable(); });
+    if (mfilter) mfilter.addEventListener("change", () => { ui.metricsFilter = mfilter.value; saveUi(); renderMetricsTable(); });
     const msort = document.getElementById("analytics-metrics-sort");
-    if (msort) msort.addEventListener("change", () => { ui.metricsSort = msort.value; renderMetricsTable(); });
+    if (msort) msort.addEventListener("change", () => { ui.metricsSort = msort.value; saveUi(); renderMetricsTable(); });
+
+    // Post-modal lukk
+    const closeBtn = document.getElementById("analytics-post-modal-close");
+    if (closeBtn) closeBtn.addEventListener("click", closePostModal);
+    const backdrop = document.getElementById("analytics-post-modal-backdrop");
+    if (backdrop) backdrop.addEventListener("click", closePostModal);
+    document.addEventListener("keydown", e => {
+      if (e.key === "Escape") closePostModal();
+    });
 
     activateSub(ui.subTab);
+  }
+
+  // ---------- post-modal ----------
+
+  function openPostModal(metricId) {
+    const m = state.postMetrics.find(x => x.id === metricId);
+    if (!m) return;
+    const cb = window.ContentBrain;
+    const cbState = cb ? cb.getState() : null;
+    let pillar = null, pipelineTitle = "", pipelineId = m.linkedPostId;
+    if (pipelineId && cbState && cbState.posts) {
+      const p = cbState.posts.find(x => x.id === pipelineId);
+      if (p) { pillar = p.pillar; pipelineTitle = p.title; }
+    }
+    if (!pillar && m._demoPillar) pillar = m._demoPillar;
+
+    const PILLARS = {
+      1: "Connective leadership", 2: "Familie & hockey",
+      3: "Bygger & lærer", 4: "Krysspollinering",
+    };
+    const escapeHtml = s => String(s ?? "")
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    const fmtDate = iso => {
+      if (!iso) return "—";
+      const d = new Date(iso);
+      return d.toLocaleString("nb-NO", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    };
+
+    const content = document.getElementById("analytics-post-modal-content");
+    if (!content) return;
+    content.innerHTML = `
+      <div class="post-modal-head">
+        <span class="dot p${pillar || "-"}"></span>
+        <span class="muted small">${pillar ? `Pilar ${pillar} — ${PILLARS[pillar]}` : "Ingen pilar-tagg"} · ${fmtDate(m.date)}</span>
+      </div>
+
+      <div class="post-modal-metrics">
+        <div class="post-modal-metric">
+          <div class="post-modal-metric-num">${m.impressions || 0}</div>
+          <div class="post-modal-metric-lbl">Visninger</div>
+        </div>
+        <div class="post-modal-metric">
+          <div class="post-modal-metric-num">${m.likes || 0}</div>
+          <div class="post-modal-metric-lbl">Likes</div>
+        </div>
+        <div class="post-modal-metric">
+          <div class="post-modal-metric-num">${m.comments || 0}</div>
+          <div class="post-modal-metric-lbl">Kommentarer</div>
+        </div>
+        <div class="post-modal-metric">
+          <div class="post-modal-metric-num">${m.shares || 0}</div>
+          <div class="post-modal-metric-lbl">Shares</div>
+        </div>
+        <div class="post-modal-metric post-modal-metric-total">
+          <div class="post-modal-metric-num">${m.engagements || 0}</div>
+          <div class="post-modal-metric-lbl">Engasjement total</div>
+        </div>
+        <div class="post-modal-metric">
+          <div class="post-modal-metric-num">${m.engagementRate ? (m.engagementRate * 100).toFixed(1) + "%" : "—"}</div>
+          <div class="post-modal-metric-lbl">Engagement rate</div>
+        </div>
+      </div>
+
+      <div class="post-modal-body">
+        ${escapeHtml(m.content || "(uten tekst)").split("\n").map(p => `<p>${p}</p>`).join("")}
+      </div>
+
+      <div class="post-modal-actions">
+        ${pipelineId ? `<span class="muted small">✓ Koblet til Pipeline-post: "${escapeHtml(pipelineTitle || "(uten tittel)")}"</span>` : '<span class="muted small">Ikke koblet til Pipeline</span>'}
+        <div class="spacer"></div>
+        ${m.url ? `<a class="primary" href="${escapeHtml(m.url)}" target="_blank" rel="noopener">↗ Åpne på LinkedIn</a>` : ""}
+      </div>
+    `;
+
+    const modal = document.getElementById("analytics-post-modal");
+    if (modal) modal.hidden = false;
+  }
+
+  function closePostModal() {
+    const modal = document.getElementById("analytics-post-modal");
+    if (modal) modal.hidden = true;
   }
 
   function activateSub(sub) {
@@ -278,7 +418,8 @@
 
   function renderOverview() {
     const { dashboard } = getStores();
-    const metrics = enrichedMetrics();
+    const allMetrics = enrichedMetrics();
+    const metrics = filterByDateRange(allMetrics);
 
     dashboard.renderEngagementBar("#analytics-chart-engagement", metrics, {
       topN: ui.topN, metric: ui.metric,
@@ -290,10 +431,31 @@
       metric: ui.metric,
     });
 
+    // Bind klikk på hver bar-gruppe i Top innlegg-charten
+    const barChart = document.getElementById("analytics-chart-engagement");
+    if (barChart) {
+      barChart.querySelectorAll(".analytics-bar-group").forEach(g => {
+        g.addEventListener("click", () => {
+          const id = g.getAttribute("data-id");
+          if (id) openPostModal(id);
+        });
+      });
+    }
+
     const summary = document.getElementById("analytics-summary");
     if (summary) {
       const linked = metrics.filter(m => m.linkedPostId).length;
-      summary.textContent = `${metrics.length} innlegg importert · ${linked} koblet til Pipeline`;
+      const rangeLabel = {
+        "7d": "siste 7 dager",
+        "30d": "siste 30 dager",
+        "90d": "siste 90 dager",
+        "365d": "siste 365 dager",
+        "all": "all tid",
+      }[ui.dateRange] || "all tid";
+      const filterNote = metrics.length !== allMetrics.length
+        ? ` · viser ${metrics.length} av ${allMetrics.length} for ${rangeLabel}`
+        : ` · ${rangeLabel}`;
+      summary.textContent = `${linked} av ${metrics.length} koblet til Pipeline${filterNote}`;
     }
   }
 
@@ -394,8 +556,11 @@
             <tr data-id="${escapeHtml(m.id)}" data-url="${escapeHtml(m.url || "")}">
               <td class="muted small">${fmtDate(m.date)}</td>
               <td>
-                <div class="metrics-content">${escapeHtml(truncate(m.content, 100))}</div>
-                ${m.url ? `<a class="metrics-link muted small" href="${escapeHtml(m.url)}" target="_blank" rel="noopener">↗ Åpne på LinkedIn</a>` : ""}
+                <div class="metrics-content metrics-content-clickable" data-modal-id="${escapeHtml(m.id)}" title="Klikk for å se hele innlegget">${escapeHtml(truncate(m.content, 100))}</div>
+                <div class="metrics-row-links">
+                  <button type="button" class="linkbtn metrics-view-btn" data-modal-id="${escapeHtml(m.id)}">👁️ Vis detaljer</button>
+                  ${m.url ? `<a class="muted small" href="${escapeHtml(m.url)}" target="_blank" rel="noopener">↗ LinkedIn</a>` : ""}
+                </div>
               </td>
               <td class="num"><input type="number" min="0" class="metrics-input" data-field="impressions" value="${m.impressions || ""}" placeholder="0"/></td>
               <td class="num"><input type="number" min="0" class="metrics-input" data-field="likes" value="${m.likes || ""}" placeholder="0"/></td>
@@ -415,6 +580,11 @@
       input.addEventListener("keydown", (e) => {
         if (e.key === "Enter") { e.preventDefault(); input.blur(); }
       });
+    });
+
+    // Bind klikk på "Vis detaljer" og innholdet → åpne modal
+    node.querySelectorAll("[data-modal-id]").forEach(el => {
+      el.addEventListener("click", () => openPostModal(el.dataset.modalId));
     });
   }
 
