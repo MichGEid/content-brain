@@ -19,10 +19,47 @@
   // RFC 4180-aktig parser: håndterer "quoted fields", "" → ", embedded
   // commas og newlines. Vi skipper UTF-8 BOM.
 
+  /**
+   * LinkedIns CSV-eksporter har ofte en "Notes:"-preamble på toppen
+   * (særlig Connections.csv) før den ekte headeren. Eksempel:
+   *
+   *   Notes:
+   *   "When exporting your connection data, the following may be..."
+   *   ""
+   *   First Name,Last Name,URL,Email Address,Company,Position,Connected On
+   *   Erik,Hansen,...
+   *
+   * Vi detekterer dette og hopper over alt før første tomme linje
+   * fulgt av en linje som ser ut som en CSV-header (>= 2 komma).
+   */
+  function stripPreamble(text) {
+    if (!text || typeof text !== "string") return text;
+    // Check first non-empty line: starter den med "Notes:" eller "Note:"?
+    const firstLineMatch = text.match(/^[^\n]*/);
+    const firstLine = firstLineMatch ? firstLineMatch[0].trim() : "";
+    if (!/^notes?:/i.test(firstLine)) return text;
+
+    // Finn første blanke linje (\n\n eller \r\n\r\n)
+    const blankIdx = text.search(/\r?\n\s*\r?\n/);
+    if (blankIdx === -1) return text;
+    // Hopp over den blanke linjen og start fra neste linje
+    const afterBlank = text.slice(blankIdx).replace(/^\r?\n\s*\r?\n/, "");
+    // Verify next line looks like a CSV header (har minst ett komma)
+    const nextLineMatch = afterBlank.match(/^[^\n]*/);
+    const nextLine = nextLineMatch ? nextLineMatch[0] : "";
+    if ((nextLine.match(/,/g) || []).length < 1) {
+      // Ser ikke ut som CSV header — gi tilbake originalen
+      return text;
+    }
+    return afterBlank;
+  }
+
   function parseCsv(text) {
     if (typeof text !== "string") return [];
     // Strip UTF-8 BOM
     if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+    // Strip LinkedIn-style "Notes:" preamble
+    text = stripPreamble(text);
 
     const rows = [];
     let row = [];
@@ -156,14 +193,21 @@
   function parsePosts(rows) {
     if (!rows.length) return [];
     const sample = rows[0];
-    const colDate     = findColumn(sample, ["Date", "Created Date", "Post Date", "Published"]);
-    const colContent  = findColumn(sample, ["ShareCommentary", "Commentary", "Share Commentary", "Content", "Post"]);
+    const colDate     = findColumn(sample, ["Date", "Created Date", "Post Date", "Published", "Activity Time"]);
+    const colContent  = findColumn(sample, ["ShareCommentary", "Commentary", "Share Commentary", "Content", "Post", "Message", "Description"]);
     const colUrl      = findColumn(sample, ["ShareLink", "Post URL", "Permalink", "URL", "Link"]);
-    const colImpr     = findColumn(sample, ["Impressions", "Views"]);
-    const colLikes    = findColumn(sample, ["Likes", "Reactions"]);
-    const colComments = findColumn(sample, ["Comments"]);
-    const colShares   = findColumn(sample, ["Shares", "Reshares"]);
-    const colEngage   = findColumn(sample, ["Engagements", "Engagement"]);
+    const colImpr     = findColumn(sample, ["Impressions", "Views", "Total Impressions", "Impression Count", "ImpressionCount"]);
+    const colLikes    = findColumn(sample, ["Likes", "Reactions", "Total Likes", "Like Count", "LikeCount", "ReactionCount", "Total Reactions"]);
+    const colComments = findColumn(sample, ["Comments", "Comment Count", "CommentCount", "Total Comments"]);
+    const colShares   = findColumn(sample, ["Shares", "Reshares", "Share Count", "ShareCount", "Reshare Count"]);
+    const colEngage   = findColumn(sample, ["Engagements", "Engagement", "Total Engagements", "Engagement Count"]);
+
+    // Track which metric columns we found — caller can warn if none.
+    parsePosts.lastMeta = {
+      hasMetrics: !!(colImpr || colLikes || colComments || colShares || colEngage),
+      columnsFound: { date: colDate, content: colContent, url: colUrl, impressions: colImpr, likes: colLikes, comments: colComments, shares: colShares, engagements: colEngage },
+      headerKeys: Object.keys(sample),
+    };
 
     return rows.map(r => {
       const content = (colContent ? r[colContent] : "") || "";
@@ -274,20 +318,25 @@
     const rows = parseCsv(text);
     const format = detectFormat(rows, filename);
     let records = [];
+    let meta = {};
     switch (format) {
-      case "posts":       records = parsePosts(rows); break;
+      case "posts":
+        records = parsePosts(rows);
+        meta = parsePosts.lastMeta || {};
+        break;
       case "reactions":   records = parseReactions(rows); break;
       case "comments":    records = parseComments(rows); break;
       case "connections": records = parseConnections(rows); break;
       default:            records = [];
     }
-    return { format, rowCount: rows.length, records };
+    return { format, rowCount: rows.length, records, meta };
   }
 
   // ---------- export ----------
 
   const AnalyticsParser = {
     parseCsv,
+    stripPreamble,
     detectFormat,
     parsePosts,
     parseReactions,

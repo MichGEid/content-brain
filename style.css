@@ -1628,3 +1628,71 @@ textarea { resize: vertical; font-family: inherit; }
 .vp-section-label {
   margin: 0 0 0.3rem;
 }
+
+/* Manuell metric-entry tabell */
+.analytics-metrics-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+.analytics-metrics-table th,
+.analytics-metrics-table td {
+  text-align: left;
+  padding: 0.5rem 0.55rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.analytics-metrics-table th {
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--bg-soft);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.analytics-metrics-table th.num,
+.analytics-metrics-table td.num { text-align: right; }
+.analytics-metrics-table tbody tr:hover { background: var(--bg-hover); }
+.metrics-content {
+  max-width: 380px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.metrics-link {
+  display: inline-block;
+  margin-top: 0.15rem;
+  text-decoration: none;
+}
+.metrics-link:hover { text-decoration: underline; }
+.metrics-input {
+  width: 70px;
+  padding: 0.25rem 0.4rem;
+  font-size: 0.85rem;
+  text-align: right;
+}
+.metrics-input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+.metrics-sum {
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.metrics-status.ok { color: var(--success); }
+
+/* Warn/info-rader i import-log */
+.analytics-import-row.warn {
+  color: var(--p2);
+  border-left: 2px solid var(--p2);
+  padding-left: 0.5rem;
+}
+.analytics-import-row.info {
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  padding-left: 1rem;
+}

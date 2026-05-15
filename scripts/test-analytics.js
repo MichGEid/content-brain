@@ -144,6 +144,36 @@ test("parsePosts: ekstraherer metrics fra Shares-CSV", () => {
   assert.ok(p.engagementRate > 0.04 && p.engagementRate < 0.05);
 });
 
+test("stripPreamble: fjerner LinkedIn Notes-preamble før header-raden", () => {
+  const csv = `Notes:\n"When exporting your connection data, the following may be excluded..."\n"More notes here"\n\nFirst Name,Last Name,Email Address,Company,Position,Connected On\nKari,Nordmann,k@example.com,Acme,CTO,08/13/2024`;
+  const result = parser.parseFile(csv, "Connections.csv");
+  assert.strictEqual(result.format, "connections");
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.records[0].name, "Kari Nordmann");
+});
+
+test("stripPreamble: vanlig CSV uten Notes returneres uendret", () => {
+  const csv = `First Name,Last Name\nKari,Nordmann`;
+  assert.strictEqual(parser.stripPreamble(csv), csv);
+});
+
+test("parsePosts: setter hasMetrics=false når metric-kolonner mangler", () => {
+  // Vanlig LinkedIn Shares.csv har kun Date, ShareLink, ShareCommentary — INGEN metrics
+  const csv = `Date,ShareLink,ShareCommentary,Visibility\n2024-08-13 10:00:00 UTC,https://lnkd.in/x,"Hello world",PUBLIC`;
+  const result = parser.parseFile(csv, "Shares.csv");
+  assert.strictEqual(result.format, "posts");
+  assert.strictEqual(result.records.length, 1);
+  assert.strictEqual(result.meta.hasMetrics, false);
+  assert.strictEqual(result.records[0].engagements, 0);
+});
+
+test("parsePosts: setter hasMetrics=true når Likes/Comments/Impressions finnes", () => {
+  const csv = `Date,ShareCommentary,Impressions,Likes,Comments\n2024-08-13 10:00:00 UTC,"Hi",1000,42,7`;
+  const result = parser.parseFile(csv, "Shares.csv");
+  assert.strictEqual(result.meta.hasMetrics, true);
+  assert.strictEqual(result.records[0].engagements, 49);
+});
+
 test("parseConnections: bygger fullt navn fra First+Last", () => {
   const csv = `First Name,Last Name,Position,Company,Connected On\n` +
               `Kari,Nordmann,CTO,Acme,08/13/2024`;

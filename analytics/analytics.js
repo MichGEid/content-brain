@@ -18,7 +18,9 @@
     metric: "engagements",       // engagements | impressions | likes | comments
     topN: 10,
     catFilter: null,             // null | "peer" | "recruit" | "board" | "prospect" | "other"
-    subTab: "overview",          // overview | engagers | patterns | import
+    subTab: "overview",          // overview | engagers | patterns | metrics | import
+    metricsFilter: "missing",    // all | missing | has — default til "missing" så brukeren ser jobben som gjenstår
+    metricsSort: "date-desc",
   };
 
   function getStores() {
@@ -61,6 +63,7 @@
         <button class="subtab" data-sub="overview" role="tab">Oversikt</button>
         <button class="subtab" data-sub="engagers" role="tab">Engagers</button>
         <button class="subtab" data-sub="patterns" role="tab">Mønstre</button>
+        <button class="subtab" data-sub="metrics" role="tab">✏️ Metrikker</button>
         <button class="subtab" data-sub="import" role="tab">Importér</button>
       </nav>
 
@@ -128,6 +131,37 @@
             <h3>Posting-mønster (ukedag × time)</h3>
             <p class="muted small">Snitt engasjement basert på når innlegget ble publisert. Mørk = sterkere.</p>
             <div id="analytics-heatmap"></div>
+          </div>
+        </section>
+
+        <section class="analytics-sub" data-sub="metrics" hidden>
+          <div class="analytics-card">
+            <h3>Manuell metric-entry</h3>
+            <p class="muted small">
+              LinkedIns standard dataeksport gir <strong>ikke</strong> per-post metrikker.
+              For å få analytics-data, klikk på et innlegg på LinkedIn → se "Impressions", "Reactions", "Comments" i analytics-panelet → tast tallene inn her.
+              Endringer lagres automatisk når du forlater feltet. Bruk filteret nedenfor for å fokusere på de som mangler tall.
+            </p>
+            <div class="analytics-toolbar">
+              <label>
+                <span>Filter</span>
+                <select id="analytics-metrics-filter">
+                  <option value="all">Alle innlegg</option>
+                  <option value="missing">Mangler metrikker</option>
+                  <option value="has">Har metrikker</option>
+                </select>
+              </label>
+              <label>
+                <span>Sortér</span>
+                <select id="analytics-metrics-sort">
+                  <option value="date-desc">Nyeste først</option>
+                  <option value="date-asc">Eldste først</option>
+                  <option value="engagement-desc">Engasjement høyt → lavt</option>
+                </select>
+              </label>
+              <span class="muted small" id="analytics-metrics-summary"></span>
+            </div>
+            <div id="analytics-metrics-table"></div>
           </div>
         </section>
 
@@ -203,6 +237,12 @@
     const demoBtn = document.getElementById("analytics-demo-load");
     if (demoBtn) demoBtn.addEventListener("click", loadDemo);
 
+    // Metrics filter + sort
+    const mfilter = document.getElementById("analytics-metrics-filter");
+    if (mfilter) mfilter.addEventListener("change", () => { ui.metricsFilter = mfilter.value; renderMetricsTable(); });
+    const msort = document.getElementById("analytics-metrics-sort");
+    if (msort) msort.addEventListener("change", () => { ui.metricsSort = msort.value; renderMetricsTable(); });
+
     activateSub(ui.subTab);
   }
 
@@ -213,6 +253,7 @@
     if (sub === "overview") renderOverview();
     if (sub === "engagers") renderEngagers();
     if (sub === "patterns") renderPatterns();
+    if (sub === "metrics")  renderMetricsTable();
     if (sub === "import")   renderImportSummary();
   }
 
@@ -291,6 +332,128 @@
     dashboard.renderHeatmap("#analytics-heatmap", enrichedMetrics());
   }
 
+  // ---------- manual metric entry ----------
+
+  function renderMetricsTable() {
+    const node = document.getElementById("analytics-metrics-table");
+    if (!node) return;
+    const summary = document.getElementById("analytics-metrics-summary");
+
+    let metrics = enrichedMetrics().slice();
+    const hasMetrics = m => (m.impressions || m.likes || m.comments || m.shares) > 0;
+    const total = metrics.length;
+    const withMetrics = metrics.filter(hasMetrics).length;
+
+    // Filter
+    if (ui.metricsFilter === "missing") metrics = metrics.filter(m => !hasMetrics(m));
+    else if (ui.metricsFilter === "has") metrics = metrics.filter(hasMetrics);
+
+    // Sort
+    if (ui.metricsSort === "date-desc")        metrics.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+    else if (ui.metricsSort === "date-asc")    metrics.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+    else if (ui.metricsSort === "engagement-desc") metrics.sort((a, b) => (b.engagements || 0) - (a.engagements || 0));
+
+    if (summary) {
+      summary.textContent = `${withMetrics} av ${total} har metrikker · ${total - withMetrics} gjenstår`;
+    }
+
+    if (!metrics.length) {
+      node.innerHTML = '<div class="analytics-empty">Ingen innlegg matcher filteret. Bytt filter eller importér Shares.csv først.</div>';
+      return;
+    }
+
+    const escapeHtml = s => String(s ?? "")
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    const fmtDate = iso => {
+      if (!iso) return "—";
+      const d = new Date(iso);
+      return d.toLocaleDateString("nb-NO", { day: "2-digit", month: "short", year: "2-digit" });
+    };
+    const truncate = (s, n) => {
+      s = String(s || "").replace(/\s+/g, " ").trim();
+      return s.length > n ? s.slice(0, n - 1) + "…" : s;
+    };
+
+    node.innerHTML = `
+      <table class="analytics-metrics-table">
+        <thead>
+          <tr>
+            <th>Dato</th>
+            <th>Innlegg</th>
+            <th class="num">Visn.</th>
+            <th class="num">Likes</th>
+            <th class="num">Komm.</th>
+            <th class="num">Shares</th>
+            <th class="num">Sum</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${metrics.map(m => `
+            <tr data-id="${escapeHtml(m.id)}" data-url="${escapeHtml(m.url || "")}">
+              <td class="muted small">${fmtDate(m.date)}</td>
+              <td>
+                <div class="metrics-content">${escapeHtml(truncate(m.content, 100))}</div>
+                ${m.url ? `<a class="metrics-link muted small" href="${escapeHtml(m.url)}" target="_blank" rel="noopener">↗ Åpne på LinkedIn</a>` : ""}
+              </td>
+              <td class="num"><input type="number" min="0" class="metrics-input" data-field="impressions" value="${m.impressions || ""}" placeholder="0"/></td>
+              <td class="num"><input type="number" min="0" class="metrics-input" data-field="likes" value="${m.likes || ""}" placeholder="0"/></td>
+              <td class="num"><input type="number" min="0" class="metrics-input" data-field="comments" value="${m.comments || ""}" placeholder="0"/></td>
+              <td class="num"><input type="number" min="0" class="metrics-input" data-field="shares" value="${m.shares || ""}" placeholder="0"/></td>
+              <td class="num metrics-sum">${m.engagements || 0}</td>
+              <td><span class="metrics-status muted small"></span></td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    `;
+
+    // Bind autosave on blur for hver input
+    node.querySelectorAll(".metrics-input").forEach(input => {
+      input.addEventListener("blur", () => saveMetricRow(input));
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); input.blur(); }
+      });
+    });
+  }
+
+  function saveMetricRow(inputEl) {
+    const { store } = getStores();
+    const row = inputEl.closest("tr");
+    if (!row) return;
+    const id = row.dataset.id;
+    const metric = state.postMetrics.find(m => m.id === id);
+    if (!metric) return;
+
+    const fields = ["impressions", "likes", "comments", "shares"];
+    let changed = false;
+    fields.forEach(f => {
+      const el = row.querySelector(`.metrics-input[data-field="${f}"]`);
+      const v = el ? Number(el.value) || 0 : 0;
+      if (metric[f] !== v) { metric[f] = v; changed = true; }
+    });
+    if (!changed) return;
+
+    // Recompute engagements + rate
+    metric.engagements = (metric.likes || 0) + (metric.comments || 0) + (metric.shares || 0);
+    metric.engagementRate = metric.impressions > 0 ? metric.engagements / metric.impressions : 0;
+
+    // Update sum-cell in UI
+    const sumCell = row.querySelector(".metrics-sum");
+    if (sumCell) sumCell.textContent = metric.engagements;
+
+    // Status indicator
+    const status = row.querySelector(".metrics-status");
+    if (status) {
+      status.textContent = "✓ Lagret";
+      status.classList.add("ok");
+      setTimeout(() => { status.textContent = ""; status.classList.remove("ok"); }, 1500);
+    }
+
+    store.save(state);
+  }
+
   // ---------- import ----------
 
   function bindImport() {
@@ -324,11 +487,24 @@
     for (const file of files) {
       try {
         const text = await file.text();
-        const { format, records } = parser.parseFile(text, file.name);
+        const { format, records, meta } = parser.parseFile(text, file.name);
         let summary;
         if (format === "posts") {
           const r = store.mergePostMetrics(state, records);
           summary = `${file.name}: ${records.length} posts → ${r.added} nye, ${r.updated} oppdaterte`;
+          appendLog(summary, "ok");
+          // Diagnostisk: hvis ingen metric-kolonner ble funnet, advar tydelig
+          if (meta && meta.hasMetrics === false) {
+            appendLog(`⚠ Shares.csv mangler engagement-metrikker (Impressions/Likes/Comments). LinkedIns standard dataeksport inkluderer ikke disse. Bruk "Manuell entry"-tabellen nedenfor for å taste inn metrikker per post.`, "warn");
+            const found = Object.entries(meta.columnsFound || {})
+              .filter(([k, v]) => v && !["impressions","likes","comments","shares","engagements"].includes(k))
+              .map(([k, v]) => `${k}=${v}`).join(", ");
+            if (found) appendLog(`   Fant kolonner: ${found}`, "info");
+            if (meta.headerKeys && meta.headerKeys.length) {
+              appendLog(`   Alle headere i fila: ${meta.headerKeys.join(", ")}`, "info");
+            }
+          }
+          continue;
         } else if (format === "connections") {
           const r = store.mergeConnections(state, records);
           summary = `${file.name}: ${records.length} connections → ${r.added} nye, ${r.updated} oppdaterte`;
@@ -360,8 +536,9 @@
     const log = document.getElementById("analytics-import-log");
     if (!log) return;
     const li = document.createElement("div");
-    li.className = "analytics-import-row " + (kind === "err" ? "err" : "ok");
-    li.textContent = (kind === "err" ? "✗ " : "✓ ") + text;
+    const prefix = { ok: "✓ ", err: "✗ ", warn: "⚠ ", info: "  " }[kind] || "  ";
+    li.className = "analytics-import-row " + (kind === "err" ? "err" : kind === "warn" ? "warn" : kind === "info" ? "info" : "ok");
+    li.textContent = prefix + text;
     log.appendChild(li);
   }
 
