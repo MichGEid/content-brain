@@ -88,12 +88,14 @@
     const sample = rows && rows[0] ? rows[0] : null;
     const fname = (filename || "").toLowerCase();
 
-    // Filename er det sterkeste signalet
-    if (/shares?\.csv$|^content\b/.test(fname)) return "posts";
-    if (/comments?\.csv$/.test(fname))          return "comments";
-    if (/reactions?\.csv$|likes?\.csv$/.test(fname)) return "reactions";
-    if (/connections?\.csv$/.test(fname))       return "connections";
-    if (/followers?\.csv$/.test(fname))         return "followers";
+    // Filename er det sterkeste signalet. LinkedIn legger ofte til medlems-ID
+    // som suffix på enkelte filer (f.eks. Comments_203144055.csv), så vi
+    // tillater valgfritt _<sifre>-suffix før .csv.
+    if (/^shares?(_\d+)?\.csv$|^content\b/.test(fname))         return "posts";
+    if (/^comments?(_\d+)?\.csv$/.test(fname))                  return "comments";
+    if (/^reactions?(_\d+)?\.csv$|^likes?(_\d+)?\.csv$/.test(fname)) return "reactions";
+    if (/^connections?(_\d+)?\.csv$/.test(fname))               return "connections";
+    if (/^followers?(_\d+)?\.csv$/.test(fname))                 return "followers";
 
     if (!sample) return "unknown";
 

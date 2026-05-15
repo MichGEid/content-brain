@@ -74,6 +74,15 @@ test("detectFormat: detekterer på kolonnenavn når filnavn er ukjent", () => {
   assert.strictEqual(parser.detectFormat(rows, "random.csv"), "connections");
 });
 
+test("detectFormat: håndterer LinkedIn-suffix med medlems-ID", () => {
+  // LinkedIn legger til medlems-ID på enkelte filer i Complete-arkivet
+  const rows = [{ Date: "x", Message: "y", Link: "z" }];
+  assert.strictEqual(parser.detectFormat(rows, "Comments_203144055.csv"), "comments");
+  assert.strictEqual(parser.detectFormat(rows, "Shares_203144055.csv"), "posts");
+  assert.strictEqual(parser.detectFormat(rows, "Reactions_123456.csv"), "reactions");
+  assert.strictEqual(parser.detectFormat(rows, "Connections_99999.csv"), "connections");
+});
+
 test("findColumn: case-insensitive lookup blant kandidater", () => {
   const row = { "Share Commentary": "x", "Date": "y" };
   assert.strictEqual(parser.findColumn(row, ["ShareCommentary", "Share Commentary"]), "Share Commentary");
