@@ -1825,3 +1825,105 @@ textarea { resize: vertical; font-family: inherit; }
   margin-top: 0.2rem;
 }
 .metrics-view-btn { font-size: 0.78rem; padding: 0; }
+
+/* ===== Kollapsbare analytics-paneler ===== */
+.analytics-card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  user-select: none;
+  margin-bottom: 0.6rem;
+  padding: 0;
+}
+.analytics-card-head:hover { color: var(--accent); }
+.analytics-card-chevron {
+  display: inline-block;
+  transition: transform 0.15s ease;
+  color: var(--text-muted);
+  font-size: 0.8em;
+  width: 0.9rem;
+  text-align: center;
+}
+.analytics-card.collapsed .analytics-card-chevron {
+  transform: rotate(-90deg);
+}
+.analytics-card.collapsed .analytics-card-body {
+  display: none;
+}
+.analytics-card.collapsed .analytics-card-head {
+  margin-bottom: 0;
+}
+
+/* ===== Insights-banner ===== */
+.analytics-insights {
+  margin: 0 0 1rem;
+}
+.analytics-insights:empty { display: none; }
+.insights-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+.insights-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.insights-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.insight {
+  display: grid;
+  grid-template-columns: 28px 1fr 24px;
+  gap: 0.6rem;
+  align-items: start;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-soft);
+}
+.insight-good {
+  border-left: 3px solid var(--success);
+  background: rgba(15, 107, 60, 0.04);
+}
+[data-theme="dark"] .insight-good { background: rgba(74, 222, 128, 0.06); }
+.insight-warn {
+  border-left: 3px solid var(--p2);
+  background: rgba(249, 115, 22, 0.05);
+}
+[data-theme="dark"] .insight-warn { background: rgba(251, 146, 60, 0.08); }
+.insight-tip {
+  border-left: 3px solid var(--p1);
+  background: rgba(99, 102, 241, 0.04);
+}
+[data-theme="dark"] .insight-tip { background: rgba(129, 140, 248, 0.06); }
+.insight-icon {
+  font-size: 1.05rem;
+  line-height: 1.3;
+  text-align: center;
+}
+.insight-body { line-height: 1.4; }
+.insight-title { font-weight: 500; font-size: 0.92rem; margin-bottom: 0.15rem; }
+.insight-detail { font-size: 0.82rem; }
+.insight-dismiss {
+  font-size: 1.1rem;
+  color: var(--text-faint);
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  align-self: start;
+  line-height: 1;
+}
+.insight-dismiss:hover { color: var(--text); }
+.insights-expand, .insights-collapse {
+  margin-top: 0.4rem;
+  font-size: 0.84rem;
+}

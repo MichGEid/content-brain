@@ -23,6 +23,8 @@
     metricsFilter: "missing",    // all | missing | has
     metricsSort: "date-desc",
     dateRange: "all",            // 7d | 30d | 90d | 365d | all
+    collapsedCards: {},          // { "cardId": true|false }
+    dismissedInsights: {},       // { "insightKey": true } — så de ikke kommer tilbake i samme måned
   });
   let ui = defaultUi();
   try {
@@ -88,6 +90,8 @@
         <button class="subtab" data-sub="import" role="tab">Importér</button>
       </nav>
 
+      <div id="analytics-insights" class="analytics-insights"></div>
+
       <div class="analytics-post-modal" id="analytics-post-modal" hidden>
         <div class="analytics-post-modal-backdrop" id="analytics-post-modal-backdrop"></div>
         <div class="analytics-post-modal-card" role="dialog" aria-modal="true">
@@ -122,19 +126,31 @@
             <span class="muted small" id="analytics-summary"></span>
           </div>
 
-          <div class="analytics-card">
-            <h3>Topp innlegg</h3>
-            <div id="analytics-chart-engagement"></div>
+          <div class="analytics-card" data-card-id="top-posts">
+            <h3 class="analytics-card-head" data-card-toggle="top-posts">
+              <span class="analytics-card-chevron">▾</span> Topp innlegg
+            </h3>
+            <div class="analytics-card-body">
+              <div id="analytics-chart-engagement"></div>
+            </div>
           </div>
 
-          <div class="analytics-card">
-            <h3>Trend over tid</h3>
-            <div id="analytics-chart-trend"></div>
+          <div class="analytics-card" data-card-id="trend">
+            <h3 class="analytics-card-head" data-card-toggle="trend">
+              <span class="analytics-card-chevron">▾</span> Trend over tid
+            </h3>
+            <div class="analytics-card-body">
+              <div id="analytics-chart-trend"></div>
+            </div>
           </div>
 
-          <div class="analytics-card">
-            <h3>Per pilar (snitt)</h3>
-            <div id="analytics-chart-pillar"></div>
+          <div class="analytics-card" data-card-id="pillar">
+            <h3 class="analytics-card-head" data-card-toggle="pillar">
+              <span class="analytics-card-chevron">▾</span> Per pilar (snitt)
+            </h3>
+            <div class="analytics-card-body">
+              <div id="analytics-chart-pillar"></div>
+            </div>
           </div>
         </section>
 
@@ -153,29 +169,43 @@
 
           <div class="analytics-cat-grid" id="analytics-cat-summary-grid"></div>
 
-          <div class="analytics-card">
-            <h3>Nettverkets vekst</h3>
-            <p class="muted small">Kumulativ connections-vekst per måned. Stolpene viser nye per måned, linjen totalen.</p>
-            <div id="analytics-chart-growth"></div>
+          <div class="analytics-card" data-card-id="growth">
+            <h3 class="analytics-card-head" data-card-toggle="growth">
+              <span class="analytics-card-chevron">▾</span> Nettverkets vekst
+            </h3>
+            <div class="analytics-card-body">
+              <p class="muted small">Kumulativ connections-vekst per måned. Stolpene viser nye per måned, linjen totalen.</p>
+              <div id="analytics-chart-growth"></div>
+            </div>
           </div>
 
-          <div class="analytics-card">
-            <h3>Connections</h3>
-            <div id="analytics-table-engagers"></div>
+          <div class="analytics-card" data-card-id="connections-table">
+            <h3 class="analytics-card-head" data-card-toggle="connections-table">
+              <span class="analytics-card-chevron">▾</span> Connections
+            </h3>
+            <div class="analytics-card-body">
+              <div id="analytics-table-engagers"></div>
+            </div>
           </div>
         </section>
 
         <section class="analytics-sub" data-sub="patterns" hidden>
-          <div class="analytics-card">
-            <h3>Posting-mønster (ukedag × time)</h3>
-            <p class="muted small">Snitt engasjement basert på når innlegget ble publisert. Mørk = sterkere.</p>
-            <div id="analytics-heatmap"></div>
+          <div class="analytics-card" data-card-id="heatmap">
+            <h3 class="analytics-card-head" data-card-toggle="heatmap">
+              <span class="analytics-card-chevron">▾</span> Posting-mønster (ukedag × time)
+            </h3>
+            <div class="analytics-card-body">
+              <p class="muted small">Snitt engasjement basert på når innlegget ble publisert. Mørk = sterkere.</p>
+              <div id="analytics-heatmap"></div>
+            </div>
           </div>
         </section>
 
         <section class="analytics-sub" data-sub="metrics" hidden>
-          <div class="analytics-card">
-            <h3>Manuell metric-entry</h3>
+          <div class="analytics-card" data-card-id="metrics-entry">
+            <h3 class="analytics-card-head" data-card-toggle="metrics-entry">
+              <span class="analytics-card-chevron">▾</span> Manuell metric-entry
+            </h3>
             <p class="muted small">
               LinkedIns standard dataeksport gir <strong>ikke</strong> per-post metrikker.
               For å få analytics-data, klikk på et innlegg på LinkedIn → se "Impressions", "Reactions", "Comments" i analytics-panelet → tast tallene inn her.
@@ -200,38 +230,44 @@
               </label>
               <span class="muted small" id="analytics-metrics-summary"></span>
             </div>
-            <div id="analytics-metrics-table"></div>
+            <div class="analytics-card-body">
+              <div id="analytics-metrics-table"></div>
+            </div>
           </div>
         </section>
 
         <section class="analytics-sub" data-sub="import" hidden>
-          <div class="analytics-card">
-            <h3>Importér LinkedIn-data</h3>
-            <p>
-              Eksportér via LinkedIn → <em>Settings &amp; Privacy → Data privacy → Get a copy of your data</em>.
-              Velg <strong>"Download larger data archive"</strong> (den øverste radioknappen) — ikke "Want something in particular", den gir bare Articles/Profile/Invitations og mangler de filene vi trenger.
-              Filene kommer som .csv i en ZIP via e-post (10 min – 24 t).
-              Slipp <strong>Shares.csv</strong>, <strong>Comments.csv</strong> og <strong>Connections.csv</strong> her — vi auto-detekterer format og ignorerer resten.
-            </p>
+          <div class="analytics-card" data-card-id="import">
+            <h3 class="analytics-card-head" data-card-toggle="import">
+              <span class="analytics-card-chevron">▾</span> Importér LinkedIn-data
+            </h3>
+            <div class="analytics-card-body">
+              <p>
+                Eksportér via LinkedIn → <em>Settings &amp; Privacy → Data privacy → Get a copy of your data</em>.
+                Velg <strong>"Download larger data archive"</strong> (den øverste radioknappen) — ikke "Want something in particular", den gir bare Articles/Profile/Invitations og mangler de filene vi trenger.
+                Filene kommer som .csv i en ZIP via e-post (10 min – 24 t).
+                Slipp <strong>Shares.csv</strong>, <strong>Comments.csv</strong> og <strong>Connections.csv</strong> her — vi auto-detekterer format og ignorerer resten.
+              </p>
 
-            <div class="analytics-dropzone" id="analytics-dropzone">
-              <p>📂 Slipp CSV-filer her, eller</p>
-              <input type="file" id="analytics-file-input" accept=".csv,text/csv" multiple hidden />
-              <button class="primary" id="analytics-file-btn">Velg filer…</button>
-            </div>
+              <div class="analytics-dropzone" id="analytics-dropzone">
+                <p>📂 Slipp CSV-filer her, eller</p>
+                <input type="file" id="analytics-file-input" accept=".csv,text/csv" multiple hidden />
+                <button class="primary" id="analytics-file-btn">Velg filer…</button>
+              </div>
 
-            <div class="analytics-demo-row">
-              <button class="linkbtn" id="analytics-demo-load" title="Genererer 16 demo-poster + 30 connections så du kan se hvordan tab-en oppfører seg uten å vente på LinkedIn-eksport">🧪 Last inn demo-data</button>
-              <span class="muted small">Eller test flyten først med generert data</span>
-            </div>
+              <div class="analytics-demo-row">
+                <button class="linkbtn" id="analytics-demo-load" title="Genererer 16 demo-poster + 30 connections så du kan se hvordan tab-en oppfører seg uten å vente på LinkedIn-eksport">🧪 Last inn demo-data</button>
+                <span class="muted small">Eller test flyten først med generert data</span>
+              </div>
 
-            <div id="analytics-import-log" class="analytics-import-log"></div>
+              <div id="analytics-import-log" class="analytics-import-log"></div>
 
-            <h4>Lagret data</h4>
-            <ul id="analytics-data-summary"></ul>
+              <h4>Lagret data</h4>
+              <ul id="analytics-data-summary"></ul>
 
-            <div class="analytics-danger">
-              <button class="linkbtn danger" id="analytics-reset">Slett all analytics-data</button>
+              <div class="analytics-danger">
+                <button class="linkbtn danger" id="analytics-reset">Slett all analytics-data</button>
+              </div>
             </div>
           </div>
         </section>
@@ -242,6 +278,20 @@
     panel.querySelectorAll(".subtab").forEach(b => {
       b.addEventListener("click", () => activateSub(b.dataset.sub));
     });
+
+    // Bind kollapsbare paneler — én delegert klikkhåndterer i panel-en
+    panel.addEventListener("click", e => {
+      const head = e.target.closest("[data-card-toggle]");
+      if (!head) return;
+      const cardId = head.getAttribute("data-card-toggle");
+      toggleCard(cardId);
+    });
+
+    // Anvend persistert kollaps-state for alle kort
+    applyCollapsedState();
+
+    // Render insights øverst
+    renderInsights();
 
     // Bind dropzone
     bindImport();
@@ -395,6 +445,106 @@
     if (sub === "patterns") renderPatterns();
     if (sub === "metrics")  renderMetricsTable();
     if (sub === "import")   renderImportSummary();
+    // Apply collapsed state hver gang en tab vises, så det er konsistent
+    applyCollapsedState();
+  }
+
+  // ---------- kollapsbare paneler ----------
+
+  function toggleCard(cardId) {
+    const isCollapsed = !!ui.collapsedCards[cardId];
+    ui.collapsedCards[cardId] = !isCollapsed;
+    saveUi();
+    applyCollapsedState();
+  }
+
+  function applyCollapsedState() {
+    document.querySelectorAll("[data-card-id]").forEach(card => {
+      const id = card.getAttribute("data-card-id");
+      const collapsed = !!ui.collapsedCards[id];
+      card.classList.toggle("collapsed", collapsed);
+    });
+  }
+
+  // ---------- insights-banner ----------
+
+  function renderInsights() {
+    const node = document.getElementById("analytics-insights");
+    if (!node) return;
+    const I = window.AnalyticsInsights;
+    if (!I) return;
+    const { parser, classifier, cb } = getStores();
+    const insights = I.generate({
+      state,
+      getCb: cb ? () => cb.getState() : null,
+      parser,
+      classifier,
+    });
+
+    const visible = insights.filter(i => !ui.dismissedInsights[i.key]);
+    if (!visible.length) { node.innerHTML = ""; return; }
+
+    const escapeHtml = s => String(s ?? "")
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+
+    // Sortér: good først (positive), tip, warn
+    const order = { good: 0, tip: 1, warn: 2 };
+    visible.sort((a, b) => (order[a.tone] || 1) - (order[b.tone] || 1));
+
+    // Vis max 5 av gangen (resten under "Vis flere"-knapp)
+    const showAll = ui.insightsExpanded;
+    const visibleSet = showAll ? visible : visible.slice(0, 5);
+    const hiddenCount = Math.max(0, visible.length - visibleSet.length);
+
+    node.innerHTML = `
+      <div class="insights-head">
+        <div class="insights-title">
+          <strong>🧠 Innsikt</strong>
+          <span class="muted small">${visible.length} observasjon${visible.length === 1 ? "" : "er"} basert på dataen din</span>
+        </div>
+        <button class="linkbtn" id="insights-reset-dismiss" title="Vis alle skjulte insights igjen">↺ Vis alle</button>
+      </div>
+      <ul class="insights-list">
+        ${visibleSet.map(i => `
+          <li class="insight insight-${i.tone}" data-key="${escapeHtml(i.key)}">
+            <span class="insight-icon">${escapeHtml(i.icon)}</span>
+            <div class="insight-body">
+              <div class="insight-title">${escapeHtml(i.title)}</div>
+              <div class="insight-detail muted small">${escapeHtml(i.detail)}</div>
+            </div>
+            <button class="linkbtn insight-dismiss" data-key="${escapeHtml(i.key)}" title="Skjul denne">×</button>
+          </li>
+        `).join("")}
+      </ul>
+      ${hiddenCount > 0
+        ? `<button class="linkbtn insights-expand">Vis ${hiddenCount} til ↓</button>`
+        : showAll && visible.length > 5
+          ? `<button class="linkbtn insights-collapse">Vis kun topp 5 ↑</button>`
+          : ""}
+    `;
+
+    node.querySelectorAll(".insight-dismiss").forEach(b => {
+      b.addEventListener("click", () => {
+        ui.dismissedInsights[b.dataset.key] = true;
+        saveUi();
+        renderInsights();
+      });
+    });
+    const resetBtn = node.querySelector("#insights-reset-dismiss");
+    if (resetBtn) resetBtn.addEventListener("click", () => {
+      ui.dismissedInsights = {};
+      saveUi();
+      renderInsights();
+    });
+    const expandBtn = node.querySelector(".insights-expand");
+    if (expandBtn) expandBtn.addEventListener("click", () => {
+      ui.insightsExpanded = true; saveUi(); renderInsights();
+    });
+    const collapseBtn = node.querySelector(".insights-collapse");
+    if (collapseBtn) collapseBtn.addEventListener("click", () => {
+      ui.insightsExpanded = false; saveUi(); renderInsights();
+    });
   }
 
   // ---------- enrichment ----------
@@ -698,6 +848,7 @@
 
     // Re-render alle views så data dukker opp
     renderImportSummary();
+    renderInsights();
     if (ui.subTab === "overview") renderOverview();
     if (ui.subTab === "engagers") renderEngagers();
   }

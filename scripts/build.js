@@ -60,6 +60,7 @@ const ANALYTICS_MODULES = [
   "analytics/classifier.js",
   "analytics/dashboard.js",
   "analytics/demo-data.js",
+  "analytics/insights.js",
   "analytics/analytics.js",
 ];
 
