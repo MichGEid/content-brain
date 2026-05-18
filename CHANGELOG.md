@@ -1,5 +1,42 @@
 # Changelog
 
+## v0.9 (2026-05-18) — Pipeline reorder
+
+Manuell sortering av kort i Pipeline-lanene. Tidligere var rekkefølgen
+bare `capturedAt` desc — nå kan du dra kortene dit du vil, og rekkefølgen
+overlever reload.
+
+### Drag-and-drop
+
+- HTML5 native (ingen ekstern lib) — bare Pipeline-kort er draggable
+- Drop-indikator viser om kortet legges over eller under målet
+- Slipp i tom plass nederst i en lane → kortet legges sist
+- Kryss av lane (idé ↔ draft ↔ klar) flytter `post.status` automatisk
+- Etter drop renummeres mål-lanen deterministisk (0, 1, 2, …)
+
+### ↑/↓-knapper
+
+- Hover/focus-synlige knapper i kort-header
+- Touch-vennlig fallback for når drag-and-drop ikke er praktisk
+- Bytter `sortIndex` med nabokortet i samme lane
+
+### Datamodell
+
+- Nytt felt: `post.sortIndex` (ascending), tie-break på `capturedAt` desc
+- Automatisk migrasjon (`ensureSortIndex`) ved første load — eksisterende
+  rekkefølge bevares
+- Nye posts (Capture, Ghostwriter `addPost`, import) får automatisk
+  `sortIndex` som plasserer dem på toppen av sin lane
+
+### Filer endret
+
+- `app.js`: +~200 linjer (migrasjon, drag-handlere, moveCardInLane,
+  oppdatert renderCard/bindCardClicks)
+- `style.css`: +~30 linjer (.card-draggable, .dragging, .drop-before/after,
+  .card-reorder, .card-arrow)
+
+Bundle: 369 KB (var 312 KB i v0.8).
+
 ## v0.7.10 (2026-05-04) — gemini-2.5-flash som default
 
 Mindre justering: bytte default Gemini-modell fra `gemini-2.0-flash`

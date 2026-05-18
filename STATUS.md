@@ -1,6 +1,6 @@
 # Status — Content Brain + Ghostwriter + Analytics
 
-Sist oppdatert 2026-05-13. Versjon: v0.8 med Analytics-modulen.
+Sist oppdatert 2026-05-18. Versjon: v0.9 med Pipeline reorder (drag-and-drop + ↑/↓).
 
 ## Helhetlig status
 
@@ -27,8 +27,11 @@ Sist oppdatert 2026-05-13. Versjon: v0.8 med Analytics-modulen.
 │  Phase 8    Analytics-modul (CSV-spor)   ✅ Live (2026-05-13)│
 │             CSV import + 4 chart-typer +                     │
 │             engager-klassifisering                           │
-│  Tests      68 unit-tester (32 GW +      ✅ Alle passerer    │
-│             36 Analytics)                                    │
+│  Phase 9    Pipeline reorder             ✅ Live (2026-05-18)│
+│             sortIndex + HTML5 drag-and-drop +                │
+│             ↑/↓-knapper, cross-lane status-shift             │
+│  Tests      82 unit-tester (32 GW +      ✅ Alle passerer    │
+│             50 Analytics)                                    │
 └────────────────────────────────────────────────────────────┘
 ```
 
@@ -107,9 +110,10 @@ edit-tracker den genererte vs din endelige versjon:
 ## Test-coverage
 
 ```bash
-npm run test                # alle 32 tester
+npm run test                # alle 82 tester
 npm run test:edit-tracker   # 12 tester for n-gram diff + suggestions
 npm run test:conversation   # 20 tester for prompt-bygging og selectExamples
+npm run test:analytics      # 50 tester for parser, classifier, store, demo, top-perf
 npm run test:prompts        # CLI for å se generert system+user prompt
 ```
 
@@ -120,6 +124,7 @@ Test-områder:
   rekkefølge, blanding av modi
 - ✓ Tone instruction: lean low/high/balanced, format, value-clamping
 - ✓ selectExamples: manual override, cap, fallback til andre pilarer
+- ✓ Analytics: CSV-parser, classifier, store/dedupe, demo-data, top-performers
 
 Ikke dekket av automatiske tester (krever browser/DOM):
 - autoSaveDraftToPipeline (men dekket av code-review)
@@ -182,4 +187,31 @@ content-brain/
 └── STATUS.md                   (denne)
 ```
 
-Bundle: ~215 KB (kryptert via StaticCrypt før deploy).
+Bundle: ~369 KB (kryptert via StaticCrypt før deploy).
+
+## Pipeline reorder (Phase 9 — 2026-05-18)
+
+Manuell sortering av kort i Pipeline-lanene.
+
+**Datamodell:**
+- `post.sortIndex` (ascending) styrer rekkefølge per lane. Sort ascending,
+  med `capturedAt` desc som tie-break.
+- `ensureSortIndex()` migrerer eldre state ved første load: posts uten
+  `sortIndex` får én tildelt per lane, basert på `capturedAt` desc → eksisterende
+  rekkefølge bevares.
+- Nye posts (capture, Ghostwriter `addPost`, import) får automatisk
+  `sortIndex = minSortIndexInLane(status) - 1` → havner alltid på toppen.
+
+**Drag-and-drop:**
+- HTML5 native (ingen ekstern lib). Bare Pipeline-kort er draggable;
+  capture-recent og archive bruker samme `renderCard` men uten `showReorder`-flag.
+- Mens kortet dras: kilden fades (`.dragging`, 45% opacity), målkortet får
+  blå innskygge (`.drop-before` / `.drop-after`) som indikerer slipp-posisjon.
+- Slipp på tom plass nederst i lanen → kortet legges sist.
+- Krys-lane (idea ↔ draft ↔ ready) flytter `post.status` automatisk.
+- Etter drop renummeres hele mål-lanen 0,1,2,… deterministisk.
+
+**↑/↓-knapper:**
+- Hover/focus-synlige i kort-header (touch-vennlig fallback).
+- Bytter `sortIndex` med nabokortet i samme lane.
+- Stopper propagation slik at klikk ikke åpner edit-modalen.
