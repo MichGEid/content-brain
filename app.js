@@ -30,6 +30,8 @@
 
   /** @type {{posts: Array, meta: {seeded: boolean, rotationAnchor: number, rotationAnchorWeek: string}}} */
   let state = load();
+  // Funksjons-deklarasjonen ensureSortIndex hoistes innenfor IIFE-scope og er trygg å kalle her
+  ensureSortIndex();
 
   function load() {
     try {
@@ -120,7 +122,43 @@
 
   // ----------------------------- CRUD -----------------------------
 
+  /**
+   * sortIndex (ascending) styrer rekkefølge i Pipeline-lanes. Migrasjon:
+   * alle posts uten sortIndex får én tildelt per lane, sortert etter
+   * capturedAt desc → eksisterende rekkefølge bevares ved første load.
+   */
+  function ensureSortIndex() {
+    const unmigrated = state.posts.filter(p => typeof p.sortIndex !== "number");
+    if (!unmigrated.length) return;
+    const byStatus = {};
+    unmigrated.forEach(p => {
+      const s = p.status || "idea";
+      (byStatus[s] ||= []).push(p);
+    });
+    Object.entries(byStatus).forEach(([status, posts]) => {
+      const existingMax = Math.max(
+        -1,
+        ...state.posts
+          .filter(p => p.status === status && typeof p.sortIndex === "number")
+          .map(p => p.sortIndex)
+      );
+      posts.sort((a, b) => (b.capturedAt || "").localeCompare(a.capturedAt || ""));
+      posts.forEach((p, i) => { p.sortIndex = existingMax + 1 + i; });
+    });
+    save();
+  }
+
+  function minSortIndexInLane(status) {
+    const items = state.posts.filter(p => p.status === status && typeof p.sortIndex === "number");
+    if (!items.length) return 0;
+    return Math.min(...items.map(p => p.sortIndex));
+  }
+
   function upsertPost(post) {
+    if (typeof post.sortIndex !== "number") {
+      // Nye posts havner øverst i sin lane
+      post.sortIndex = minSortIndexInLane(post.status || "idea") - 1;
+    }
     const i = state.posts.findIndex(p => p.id === post.id);
     if (i >= 0) state.posts[i] = post;
     else state.posts.push(post);
@@ -244,18 +282,25 @@
           if (!hay.includes(pipelineSearch)) return false;
         }
         return true;
-      }).sort((a, b) => (b.capturedAt || "").localeCompare(a.capturedAt || ""));
+      }).sort((a, b) => {
+        const ai = typeof a.sortIndex === "number" ? a.sortIndex : Number.MAX_SAFE_INTEGER;
+        const bi = typeof b.sortIndex === "number" ? b.sortIndex : Number.MAX_SAFE_INTEGER;
+        if (ai !== bi) return ai - bi;
+        return (b.capturedAt || "").localeCompare(a.capturedAt || "");
+      });
 
       const lane = $("#lane-" + status);
       $("#count-" + status).textContent = items.length;
       lane.innerHTML = items.length
-        ? items.map(renderCard).join("")
+        ? items.map(p => renderCard(p, { showReorder: true })).join("")
         : `<li class="empty">Tom</li>`;
       bindCardClicks(lane);
+      wireLaneDragAndDrop(lane, status);
     });
   }
 
-  function renderCard(p) {
+  function renderCard(p, opts = {}) {
+    const { showReorder = false } = opts;
     const meta = [];
     if (p.publishedAt)  meta.push(`Publisert ${fmtDate(p.publishedAt)}`);
     if (p.scheduledFor) meta.push(`Planlagt ${fmtDate(p.scheduledFor)}`);
@@ -267,11 +312,22 @@
       ? `<button class="linkbtn" data-action="ghostwriter" data-id="${p.id}" onclick="event.stopPropagation()">→ Ghostwriter</button>`
       : "";
 
+    // Reorder-knapper bare i Pipeline-lanes (showReorder=true)
+    const reorderCtrls = showReorder
+      ? `<span class="card-reorder">
+           <button class="card-arrow" data-action="move-up" data-id="${p.id}" title="Flytt opp" onclick="event.stopPropagation()" aria-label="Flytt opp">↑</button>
+           <button class="card-arrow" data-action="move-down" data-id="${p.id}" title="Flytt ned" onclick="event.stopPropagation()" aria-label="Flytt ned">↓</button>
+         </span>`
+      : "";
+
+    const draggable = showReorder ? ` draggable="true"` : "";
+
     return `
-      <li class="card" data-id="${p.id}">
+      <li class="card${showReorder ? " card-draggable" : ""}" data-id="${p.id}"${draggable}>
         <div class="card-head">
           ${pillarBadge(p.pillar)}
           <span class="card-title">${escapeHtml(p.title || "(uten tittel)")}</span>
+          ${reorderCtrls}
         </div>
         ${p.body ? `<div class="card-body">${escapeHtml(p.body)}</div>` : ""}
         ${meta.length ? `<div class="card-meta">${meta.join(" · ")}</div>` : ""}
@@ -290,6 +346,146 @@
         window.ContentBrain?.sendToGhostwriter?.(btn.dataset.id);
       });
     });
+    container.querySelectorAll('[data-action="move-up"]').forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        moveCardInLane(btn.dataset.id, "up");
+      });
+    });
+    container.querySelectorAll('[data-action="move-down"]').forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        moveCardInLane(btn.dataset.id, "down");
+      });
+    });
+  }
+
+  // ----------------------------- PIPELINE: REORDERING -----------------------------
+
+  /**
+   * Bytter sortIndex med nabokortet i samme lane.
+   * Beregner over post.status (ikke det rendrede DOM) for å unngå filter-bias.
+   */
+  function moveCardInLane(id, direction) {
+    const p = state.posts.find(q => q.id === id);
+    if (!p) return;
+    const lane = state.posts
+      .filter(q => q.status === p.status)
+      .sort((a, b) => {
+        const ai = typeof a.sortIndex === "number" ? a.sortIndex : Number.MAX_SAFE_INTEGER;
+        const bi = typeof b.sortIndex === "number" ? b.sortIndex : Number.MAX_SAFE_INTEGER;
+        if (ai !== bi) return ai - bi;
+        return (b.capturedAt || "").localeCompare(a.capturedAt || "");
+      });
+    const idx = lane.findIndex(q => q.id === id);
+    if (idx < 0) return;
+    const swapWith = direction === "up" ? idx - 1 : idx + 1;
+    if (swapWith < 0 || swapWith >= lane.length) return;
+    const tmp = lane[idx].sortIndex;
+    lane[idx].sortIndex = lane[swapWith].sortIndex;
+    lane[swapWith].sortIndex = tmp;
+    save();
+    renderPipeline();
+  }
+
+  // HTML5 drag-and-drop state (kun gyldig under én drag-syklus)
+  let _dragSrcId = null;
+
+  function wireLaneDragAndDrop(lane, status) {
+    if (!lane) return;
+    lane.addEventListener("dragover", onLaneDragOver);
+    lane.addEventListener("drop", (e) => onLaneDrop(e, status));
+    lane.querySelectorAll(".card-draggable").forEach(card => {
+      card.addEventListener("dragstart", onCardDragStart);
+      card.addEventListener("dragend",   onCardDragEnd);
+      card.addEventListener("dragover",  onCardDragOver);
+      card.addEventListener("dragleave", onCardDragLeave);
+    });
+  }
+
+  function onCardDragStart(e) {
+    _dragSrcId = this.dataset.id;
+    e.dataTransfer.effectAllowed = "move";
+    try { e.dataTransfer.setData("text/plain", _dragSrcId); } catch (_) {}
+    this.classList.add("dragging");
+  }
+
+  function onCardDragEnd() {
+    this.classList.remove("dragging");
+    document.querySelectorAll(".card.drop-before, .card.drop-after").forEach(c => {
+      c.classList.remove("drop-before", "drop-after");
+    });
+    _dragSrcId = null;
+  }
+
+  function onCardDragOver(e) {
+    if (!_dragSrcId || this.dataset.id === _dragSrcId) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = "move";
+    // Nullstill indikatorer på andre kort
+    document.querySelectorAll(".card.drop-before, .card.drop-after").forEach(c => {
+      if (c !== this) c.classList.remove("drop-before", "drop-after");
+    });
+    const rect = this.getBoundingClientRect();
+    const isAbove = (e.clientY - rect.top) < rect.height / 2;
+    this.classList.toggle("drop-before", isAbove);
+    this.classList.toggle("drop-after", !isAbove);
+  }
+
+  function onCardDragLeave() {
+    this.classList.remove("drop-before", "drop-after");
+  }
+
+  function onLaneDragOver(e) {
+    if (!_dragSrcId) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  }
+
+  function onLaneDrop(e, targetStatus) {
+    if (!_dragSrcId) return;
+    e.preventDefault();
+
+    const src = state.posts.find(p => p.id === _dragSrcId);
+    if (!src) return;
+
+    const lane = $("#lane-" + targetStatus);
+    const cardEls = Array.from(lane.querySelectorAll(".card"));
+    const targetCard = e.target.closest(".card");
+
+    // Bygg ny rekkefølge av ID-er i mål-lane (uten kilden, så setter vi den inn riktig sted)
+    const orderedIds = cardEls.map(c => c.dataset.id).filter(id => id !== _dragSrcId);
+
+    if (targetCard && targetCard.dataset.id !== _dragSrcId) {
+      const isBefore = targetCard.classList.contains("drop-before");
+      const idx = orderedIds.indexOf(targetCard.dataset.id);
+      if (idx >= 0) orderedIds.splice(isBefore ? idx : idx + 1, 0, _dragSrcId);
+      else orderedIds.push(_dragSrcId);
+    } else {
+      // Slippet i tom plass → bunnen av lanen
+      orderedIds.push(_dragSrcId);
+    }
+
+    // Krys-lane-flytt: oppdater status
+    if (src.status !== targetStatus) {
+      src.status = targetStatus;
+    }
+
+    // Renummerér mål-lanen (top→bunn = 0,1,2,...)
+    orderedIds.forEach((id, i) => {
+      const p = state.posts.find(q => q.id === id);
+      if (p) p.sortIndex = i;
+    });
+
+    // Cleanup visuals
+    document.querySelectorAll(".card.drop-before, .card.drop-after, .card.dragging").forEach(c => {
+      c.classList.remove("drop-before", "drop-after", "dragging");
+    });
+    _dragSrcId = null;
+
+    save();
+    renderPipeline();
   }
 
   // ----------------------------- CALENDAR -----------------------------
