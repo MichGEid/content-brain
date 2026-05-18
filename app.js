@@ -653,7 +653,9 @@
   $("#edit-form").addEventListener("submit", (e) => {
     e.preventDefault();
     const id = $("#edit-id").value;
-    const p = getPost(id) || { id, capturedAt: new Date().toISOString() };
+    const existing = getPost(id);
+    const oldStatus = existing ? existing.status : null;
+    const p = existing || { id, capturedAt: new Date().toISOString() };
     p.title        = $("#edit-title").value.trim();
     p.body         = $("#edit-body").value.trim();
     p.pillar       = $("#edit-pillar").value ? Number($("#edit-pillar").value) : null;
@@ -667,6 +669,14 @@
     // implicit status nudges
     if (p.publishedAt && p.status !== "published") p.status = "published";
     if (p.scheduledFor && p.status !== "published" && p.status !== "scheduled") p.status = "scheduled";
+
+    // Hvis status endret seg på en eksisterende post, re-tildel sortIndex
+    // slik at posten havner på toppen av ny lane (matcher intuisjonen
+    // "nettopp flyttet hit = øverst"). Nye posts håndteres allerede av
+    // upsertPost via dens egen sortIndex-defaulting.
+    if (existing && oldStatus !== p.status) {
+      p.sortIndex = minSortIndexInLane(p.status) - 1;
+    }
 
     upsertPost(p);
     closeEdit();
