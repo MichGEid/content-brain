@@ -163,6 +163,14 @@
     if (i >= 0) state.posts[i] = post;
     else state.posts.push(post);
     save();
+    // Live-hook: hvis posten er publisert med URL+dato, be Analytics om å
+    // sync-e så den dukker opp i Mangler metrikker-tabellen uten at fanen
+    // må åpnes manuelt. Soft-koblet: no-op hvis Analytics ikke er lastet.
+    if (post.status === "published" && post.publishedAt && post.linkedinUrl) {
+      try { window.Analytics?.syncFromPipeline?.(); } catch (e) {
+        console.warn("[content-brain] Analytics.syncFromPipeline feilet", e);
+      }
+    }
   }
 
   function deletePost(id) {

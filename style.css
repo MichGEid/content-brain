@@ -1858,6 +1858,18 @@ textarea { resize: vertical; font-family: inherit; }
 }
 .metrics-view-btn { font-size: 0.78rem; padding: 0; }
 
+/* Pipeline-sourced metric-rader (lagt til via sync, ikke CSV-import) */
+.metrics-source-badge {
+  font-size: 0.7rem;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+  cursor: help;
+}
+
 /* ===== Kollapsbare analytics-paneler ===== */
 .analytics-card-head {
   display: flex;

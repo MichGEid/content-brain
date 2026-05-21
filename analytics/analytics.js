@@ -71,16 +71,37 @@
     renderShell();
   }
 
-  function syncPipelinePublishedToMetrics() {
-    if (!state) return;
+  function syncPipelinePublishedToMetrics(opts) {
+    const { silent = false, rerender = false } = opts || {};
     const { store, parser, cb } = getStores();
-    if (!store || typeof store.syncPublishedPostsToMetrics !== "function") return;
-    if (!parser || !cb || typeof cb.getState !== "function") return;
-    const result = store.syncPublishedPostsToMetrics(state, cb.getState, parser);
+    if (!store || typeof store.syncPublishedPostsToMetrics !== "function") return { added: 0 };
+    if (!parser || !cb || typeof cb.getState !== "function") return { added: 0 };
+
+    // Lazy-load state hvis Analytics-fanen aldri har vært åpnet i denne
+    // sesjonen. Dette lar live-hook fra app.js virke uten å først aktivere
+    // fanen. Vi flipper IKKE initialized — bare init() gjør det.
+    let workingState = state;
+    if (!workingState) workingState = store.load();
+
+    const result = store.syncPublishedPostsToMetrics(workingState, cb.getState, parser);
     if (result.added > 0) {
-      store.save(state);
-      console.log("[analytics] Synket " + result.added + " published Pipeline-post(s) til metrikker.");
+      store.save(workingState);
+      // Behold lokal state-ref hvis vi nettopp lazy-lastet, så ikke senere
+      // init() overskriver med en stale kopi (store.save har riktignok
+      // persistert til localStorage, men dette holder in-memory konsistent).
+      state = workingState;
+      if (!silent) {
+        console.log("[analytics] Synket " + result.added + " published Pipeline-post(s) til metrikker.");
+      }
+      // Re-render hvis Analytics-fanen er aktiv (live-hook tilfellet)
+      if (rerender) {
+        const panel = document.getElementById("analytics");
+        if (panel && panel.classList.contains("active")) {
+          renderShell();
+        }
+      }
     }
+    return result;
   }
 
   // ---------- shell ----------
@@ -721,6 +742,7 @@
               <td>
                 <div class="metrics-content metrics-content-clickable" data-modal-id="${escapeHtml(m.id)}" title="Klikk for å se hele innlegget">${escapeHtml(truncate(m.content, 100))}</div>
                 <div class="metrics-row-links">
+                  ${m.source === "pipeline" ? `<span class="metrics-source-badge" title="Lagt til automatisk fra Pipeline – fyll inn metrikker manuelt">📌 Pipeline</span>` : ""}
                   <button type="button" class="linkbtn metrics-view-btn" data-modal-id="${escapeHtml(m.id)}">👁️ Vis detaljer</button>
                   ${m.url ? `<a class="muted small" href="${escapeHtml(m.url)}" target="_blank" rel="noopener">↗ LinkedIn</a>` : ""}
                 </div>
@@ -1012,6 +1034,17 @@
       }
       return getPillarPerformance(opts);
     },
+    /**
+     * Sync Pipeline-published posts til metrics-tabellen. Kalles av
+     * app.js sin upsertPost når en post er published med URL+dato, slik
+     * at radene dukker opp uten at brukeren må åpne Analytics-fanen
+     * først. Idempotent og soft-coupled (app.js kaller via optional
+     * chaining; null-safe hvis Analytics ikke er lastet).
+     */
+    syncFromPipeline() {
+      return syncPipelinePublishedToMetrics({ silent: true, rerender: true });
+    },
+
     /**
      * Er det noe data overhodet? Lar Ghostwriter unngå å vise hints
      * når det ikke er noe å rapportere fra.

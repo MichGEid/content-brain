@@ -385,8 +385,30 @@ test("sync: published post med URL + dato → ny metric-rad", () => {
   assert.strictEqual(m.linkedPostId, "p_1");
   assert.strictEqual(m.impressions, 0);
   assert.strictEqual(m.engagements, 0);
+  assert.strictEqual(m.source, "pipeline", "sync-genererte rader må merkes med source=pipeline");
   assert.ok(m.contentFingerprint, "fingerprint må være satt");
   assert.ok(m.id.startsWith("a_"), "metric-id må prefikses med a_");
+});
+
+test("sync: backfill av eksisterende metric tvinger ikke source=pipeline", () => {
+  // Eksisterende rad fra CSV (uten source-felt) som matches via URL skal
+  // ikke få source=pipeline — det skiller "ekte" data fra sync-stubber.
+  const s = store.emptyState();
+  s.postMetrics.push({
+    id: "a_csv",
+    date: "2026-05-20",
+    url: "https://linkedin.com/posts/x",
+    impressions: 500, likes: 10,
+  });
+  const posts = [{
+    id: "p_1", status: "published",
+    publishedAt: "2026-05-20",
+    linkedinUrl: "https://linkedin.com/posts/x",
+    title: "t", body: "b",
+  }];
+  store.syncPublishedPostsToMetrics(s, cbStateOf(posts), parser);
+  assert.strictEqual(s.postMetrics[0].source, undefined,
+    "CSV-importerte rader skal ikke få source-felt påtvunget");
 });
 
 test("sync: hopper over post som ikke er published", () => {

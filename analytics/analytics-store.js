@@ -220,6 +220,7 @@
         engagements: 0,
         engagementRate: 0,
         linkedPostId: p.id,
+        source: "pipeline",
       };
       state.postMetrics.push(entry);
       byUrl.set(p.linkedinUrl, entry);
