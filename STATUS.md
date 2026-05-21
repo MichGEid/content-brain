@@ -1,6 +1,6 @@
 # Status — Content Brain + Ghostwriter + Analytics
 
-Sist oppdatert 2026-05-18. Versjon: v0.9 med Pipeline reorder (drag-and-drop + ↑/↓).
+Sist oppdatert 2026-05-21. Versjon: v0.10 med Analytics auto-sync fra Pipeline.
 
 ## Helhetlig status
 
@@ -30,8 +30,13 @@ Sist oppdatert 2026-05-18. Versjon: v0.9 med Pipeline reorder (drag-and-drop + �
 │  Phase 9    Pipeline reorder             ✅ Live (2026-05-18)│
 │             sortIndex + HTML5 drag-and-drop +                │
 │             ↑/↓-knapper, cross-lane status-shift             │
-│  Tests      82 unit-tester (32 GW +      ✅ Alle passerer    │
-│             50 Analytics)                                    │
+│  Phase 9.1  Edit-modal sortIndex-fiks    ✅ Live (2026-05-18)│
+│             status-endring via dropdown re-tildeler          │
+│             sortIndex (matcher drag-and-drop-flyten)         │
+│  Phase 10   Analytics auto-sync fra      ✅ Live (2026-05-21)│
+│             Pipeline + 📌-badge + live hook                  │
+│  Tests      92 unit-tester (32 GW +      ✅ Alle passerer    │
+│             60 Analytics)                                    │
 └────────────────────────────────────────────────────────────┘
 ```
 
@@ -110,10 +115,11 @@ edit-tracker den genererte vs din endelige versjon:
 ## Test-coverage
 
 ```bash
-npm run test                # alle 82 tester
+npm run test                # alle 92 tester
 npm run test:edit-tracker   # 12 tester for n-gram diff + suggestions
 npm run test:conversation   # 20 tester for prompt-bygging og selectExamples
-npm run test:analytics      # 50 tester for parser, classifier, store, demo, top-perf
+npm run test:analytics      # 60 tester for parser, classifier, store, demo,
+                            # top-perf, syncPublishedPostsToMetrics
 npm run test:prompts        # CLI for å se generert system+user prompt
 ```
 
@@ -187,7 +193,49 @@ content-brain/
 └── STATUS.md                   (denne)
 ```
 
-Bundle: ~369 KB (kryptert via StaticCrypt før deploy).
+Bundle: ~375 KB (kryptert via StaticCrypt før deploy).
+
+## Analytics auto-sync fra Pipeline (Phase 10 — 2026-05-21)
+
+Lar Michel slippe LinkedIn-CSV-eksport for sitt ukentlige innlegg. Når en
+Pipeline-post markeres Publisert med dato + LinkedIn-URL, dukker den
+automatisk opp i Analytics → Mangler metrikker-tabellen, klar for manuell
+inntasting av visn/likes/komm/shares.
+
+**Datamodell:**
+- Nytt felt: `postMetric.source = "pipeline"` på sync-genererte rader.
+  CSV-importerte rader får aldri dette feltet påtvunget, så provenance
+  forblir entydig selv etter senere CSV-import.
+
+**`syncPublishedPostsToMetrics(state, getCb, parser)`** i analytics-store.js:
+- Idempotent. Match-prioritet: URL → date+fingerprint.
+- Eksisterende rader røres ikke — bare backfiller `linkedPostId` (og URL
+  hvis match via fingerprint og URL mangler).
+- Returnerer `{ added, skipped }` for testbarhet.
+
+**Init-hook:** `Analytics.init()` kjører sync hver gang fanen åpnes.
+
+**Live-hook:** `app.js` `upsertPost` kaller `window.Analytics?.syncFromPipeline?.()`
+når post er published med URL + dato. Soft-koblet via optional chaining.
+Lazy state-load i Analytics-modulen så hooken virker første gang fanen
+aldri har vært åpnet i sesjonen. Re-renderer skallet hvis fanen er aktiv.
+
+**UI:**
+- Liten 📌-pille i `metrics-row-links` ved siden av "Vis detaljer" på
+  Pipeline-sourced rader (hover-tooltip: "Lagt til automatisk fra Pipeline").
+- Resten av tabell-flyten er uendret (input-felter med autosave på blur).
+
+**Konsekvens for CSV-import:** Fortsetter å virke. Dedupe på URL betyr at
+en senere CSV-eksport vil oppdatere Pipeline-sourced rader med ekte tall
+istedenfor å lage duplikater.
+
+## Pipeline edit-modal sortIndex-fiks (Phase 9.1 — 2026-05-18)
+
+Når en post endrer status via dropdown i edit-modal, re-tildeles `sortIndex`
+slik at den havner på toppen av ny lane. Matcher intuisjonen fra drag-and-
+drop og nye captures. `oldStatus` fanges før dropdown-verdien overskriver
+`p.status`, og oppdatering skjer bare på eksisterende posts (nye posts
+håndteres allerede av `upsertPost` sin defaulting).
 
 ## Pipeline reorder (Phase 9 — 2026-05-18)
 

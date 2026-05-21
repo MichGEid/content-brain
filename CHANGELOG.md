@@ -1,5 +1,54 @@
 # Changelog
 
+## v0.10 (2026-05-21) — Analytics auto-sync fra Pipeline
+
+Du slipper å laste ned LinkedIn-CSV for hvert eneste innlegg. Når en
+Pipeline-post er Publisert med dato og LinkedIn-URL, dukker den nå opp
+i Analytics → Mangler metrikker uten manuelt arbeid.
+
+### Sync-funksjonen
+
+- `syncPublishedPostsToMetrics(state, getCb, parser)` i analytics-store.js
+  — idempotent. Match-prioritet: URL → date+fingerprint
+- Eksisterende rader oppdateres ikke; bare `linkedPostId` (og URL ved
+  fingerprint-match) backfilles. CSV-import er fortsatt sannhetskilden
+  for ekte tall
+- Returnerer `{ added, skipped }` for testbarhet
+
+### Tre integrasjonspunkter
+
+- **Init-hook:** `Analytics.init()` kjører sync hver gang fanen åpnes
+- **Live-hook:** `app.js` `upsertPost` kaller
+  `window.Analytics?.syncFromPipeline?.()` når post er published med
+  URL + dato. Soft-koblet, lazy state-load — virker selv om fanen aldri
+  har vært åpnet i sesjonen
+- **Re-render** av Analytics-skallet hvis fanen er aktiv akkurat da
+
+### Pipeline-badge
+
+- Sync-genererte rader får `source: "pipeline"` (CSV-rader får aldri
+  feltet påtvunget, så provenance er entydig)
+- Liten 📌 Pipeline-pille rendres i `metrics-row-links`, tooltip
+  "Lagt til automatisk fra Pipeline — fyll inn metrikker manuelt"
+
+### Tester
+
+- 10 nye unit-tester (60 i analytics, 92 totalt). Dekker tom state,
+  ny post, hopping over non-published/manglende felt, URL-match,
+  date+fingerprint-match, idempotency, defensive guards, source-merking
+
+Bundle: 375 KB (var 369 KB i v0.9.1).
+
+## v0.9.1 (2026-05-18) — Edit-modal sortIndex-fiks
+
+Liten patch på Phase 9: når en post endrer status via dropdown i edit-
+modalen, re-tildeles `sortIndex` så den havner på toppen av ny lane.
+
+Matcher intuisjonen fra drag-and-drop og nye captures (alt som nettopp
+ble flyttet hit = øverst). `oldStatus` fanges før dropdown-verdien
+overskriver `p.status`, og oppdateringen skjer bare på eksisterende
+posts — nye posts håndteres allerede av `upsertPost` sin defaulting.
+
 ## v0.9 (2026-05-18) — Pipeline reorder
 
 Manuell sortering av kort i Pipeline-lanene. Tidligere var rekkefølgen

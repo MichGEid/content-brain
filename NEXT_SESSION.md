@@ -1,81 +1,84 @@
 # Neste sesjon — handover
 
-Sist oppdatert 2026-05-18 (etter Phase 9 — Pipeline reorder).
+Sist oppdatert 2026-05-21 (etter Phase 10 — Analytics auto-sync fra Pipeline).
 
 ## TL;DR
 
-Pipeline-kort kan nå reorderes manuelt med drag-and-drop og ↑/↓-knapper.
-Endringen er pushet til `main` og lever på Pages. Bundle er ~369 KB.
-82 unit-tester passerer.
+Du kan nå publisere et nytt LinkedIn-innlegg, markere Pipeline-kortet som
+Publisert med URL og dato, og raden dukker opp i Analytics → Mangler
+metrikker automatisk. Ingen LinkedIn-CSV-eksport for ukentlige innlegg
+mer. Bundle ~375 KB. 92 unit-tester grønne.
 
-- ✅ `sortIndex`-felt på posts med automatisk migrasjon
-- ✅ HTML5 drag-and-drop (innen lane + krys-lane)
-- ✅ Visuelle drop-indikatorer (linje over/under målkortet)
-- ✅ Hover-synlige ↑/↓-knapper i kort-header
-- ✅ Nye posts havner alltid på toppen av sin lane
+- ✅ Phase 9.1: Edit-modal sortIndex-fiks (status-endring via dropdown
+  flytter posten til toppen av ny lane)
+- ✅ Phase 10: `syncPublishedPostsToMetrics` med init-hook og live-hook
+- ✅ Pipeline-sourced rader merkes med 📌-badge i metrics-tabellen
+- ✅ 10 nye unit-tester
 
 ## 🌅 Anbefalt rekkefølge neste økt
 
-### 1. Røyk-test drag-and-drop i prod (3 min)
+### 1. Røyk-test live-flyten i prod (3 min)
+
+Forutsetter at endringene fra v0.10 er pushet til main:
 
 1. Åpne https://michgeid.github.io/content-brain/ (StaticCrypt-passord)
-2. **Pipeline**-tab → bekreft at lanene rendres som før (sortering bør være
-   identisk med før — migrasjon bevarer rekkefølgen)
-3. Dra et kort innen samme lane → slipp et annet sted → bekreft at det blir
-   stående der etter F5 (reload)
-4. Dra et kort fra "Idé" → "Klar" → bekreft status endres og kortet ligger
-   i target-lane
-5. Hover over et kort → bekreft at ↑/↓-knappene dukker opp → klikk → bekreft
-   ett-hakks flytting
-6. Lukk og åpne fanen igjen → rekkefølgen skal være persistent
+2. Pipeline → finn et innlegg du har publisert
+3. Klikk kortet → sett status til **Publisert**, dato i Publisert-feltet,
+   lim inn LinkedIn-URL → Lagre
+4. Bytt til **Analytics**-tab → **Mangler metrikker** (eller filteret som
+   står på fra forrige økt)
+5. Du skal se posten i tabellen med en 📌 Pipeline-badge ved siden av
+   "Vis detaljer"-knappen
+6. Skriv inn visn/likes/komm/shares → tab/klikk ut av feltet → ✓ Lagret
+7. Bekreft at reload bevarer tallene
 
-### 2. Kjent UX-hull (kandidat for kjapp fiks)
+### 2. Cutler-artikkelen som ligger på vent
 
-Når et kort endrer status via **dropdown i edit-modal** (ikke via drag),
-bevarer det sin gamle `sortIndex`. Det betyr at det kan lande midt i den
-nye lanen istedenfor på toppen (som ville matchet intuisjonen "nettopp
-flyttet = øverst"). Drag-and-drop og ↑/↓ er upåvirket — bare edit-modal-
-flowen.
+Leadership in Tech #311 (14. mai 2026) — John Cutler om "glue people" —
+treffer Pilar 1 (Connective leadership). URL:
+`https://leadershipintech.com/newsletters/2277?sid=bdea9f87-f72c-4075-896f-499f5e0044ee`
 
-**Fiks (5 min):** I `#edit-form` sin submit-handler i `app.js`, etter
-`if (p.publishedAt ...)`/`if (p.scheduledFor ...)`-nudgene, sjekk om status
-endret seg, og hvis ja: `p.sortIndex = minSortIndexInLane(p.status) - 1`.
+Når du er klar: capture som idé i Pipeline med URL → "→ Ghostwriter" →
+article-reaction-modus åpner automatisk (smart routing fra Phase 2.5).
 
-### 3. Nyhetsbrev-saken som ligger på vent
-
-Michel sendte Leadership in Tech #311 (14. mai 2026) — John Cutler-
-artikkelen om "glue people" treffer Pilar 1 (Connective leadership) rett.
-URL: `https://leadershipintech.com/newsletters/2277?sid=bdea9f87-f72c-4075-896f-499f5e0044ee`
-
-Når han er klar: capture som idé med URL → "→ Ghostwriter" → article-reaction-
-modus åpner automatisk (smart routing fra Phase 2.5).
-
-### 4. Phase 10-kandidater (større skritt)
-
-Når drag-and-drop er rotfast og nyhetsbrevet er kjørt:
+### 3. Mulige Phase 11-kandidater
 
 - **Bulk-import gamle LinkedIn-poster** til Pipeline med pilar-tagging
-  (gjør analytics-linking enklere — også Phase 2+ i Analytics-roadmap).
+  (også Phase 2+ i Analytics-roadmap) — gjør sync-funksjonen mer
+  produktiv ved å backfille historisk data
 - **Calendar-tab integrasjon med Ghostwriter-poster** — "Plassér…"-knappen
-  ruter direkte til Ghostwriter for ukens pilar hvis ingen draft eksisterer.
+  ruter direkte til Ghostwriter for ukens pilar hvis ingen draft eksisterer
 - **Backend for scheduled publishing** — første gang vi bryter gratis-stack-
-  prinsippet, så krever bevisst avgjørelse.
+  prinsippet, så krever bevisst avgjørelse
+- **"Mangler URL"-varsel** på Pipeline-kort som er Publisert uten LinkedIn-
+  URL (ellers fanger ikke sync-funksjonen dem)
 - **Standalone HTML-rapport-eksport** fra Analytics — for styre-prat eller
-  egen refleksjon.
-- **Engagers per innlegg** (Shield Analytics-integrasjon) — vi har struktur,
-  mangler datakilde.
+  egen refleksjon
+
+## Kjente begrensninger etter Phase 10
+
+1. **Posts uten LinkedIn-URL fanges ikke** av sync-funksjonen. Det er
+   bevisst (URL er hovednøkkelen for matching), men det betyr at du må
+   huske å fylle inn URL-feltet i edit-modalen.
+2. **Live-hook fyrer på hver upsertPost av en published post** — ikke bare
+   ved status-overgangen. Idempotent, så ingen praktisk konsekvens, men
+   det ringer Analytics-modulen oftere enn strengt nødvendig.
+3. **Pipeline-sourced rader er fortsatt "ekte" data** så snart du fyller
+   inn tall. Hvis du senere importerer LinkedIn-CSV, blir radene
+   oppdatert med eksport-data via URL-dedupe. Da overskriver eksport-
+   tall det du har skrevet inn manuelt.
 
 ## Sanity-tester du bør kjøre etter ny økt
 
 ```bash
 cd ~/Documents/Claude/Projects/Content\ Brain
-npm run test                          # 82 unit-tester
-node scripts/build.js --bundle-only   # produserer dist/index.html ~369 KB
+npm run test                          # 92 unit-tester
+node scripts/build.js --bundle-only   # produserer dist/index.html ~375 KB
 ```
 
 ## Når vi snakkes igjen
 
 Åpne ny chat i Content Brain-prosjektet og skriv noe som
-*"Klar for neste økt — drag-and-drop fungerer."* Da plukker jeg opp her,
-fra UX-hullet i edit-modalen eller fra nyhetsbrevet, alt etter hva du
-er lysten på.
+*"Klar for neste økt — Analytics-sync er testet."* Da plukker jeg opp her,
+fra Cutler-artikkelen eller en av Phase 11-kandidatene, alt etter hva du
+er lystig på.
