@@ -148,6 +148,88 @@
     return { linked, unlinked };
   }
 
+  // ---------- sync Pipeline-published posts → tom metric-rad ----------
+
+  /**
+   * Idempotent: scanner state.posts og legger til en tom metrics-rad for
+   * hver published post med dato og LinkedIn-URL som ikke allerede er
+   * representert. Lar Michel slippe LinkedIn-CSV-eksport når han bare
+   * vil legge inn metrics for ett nytt innlegg.
+   *
+   * - Match-prioritet: URL → date+fingerprint
+   * - Eksisterende rader oppdateres ikke (CSV-import er sannhetskilden
+   *   for ekte tall). Bare missing linkedPostId backfilles.
+   * - Returnerer { added, skipped } for testbarhet/logging.
+   */
+  function syncPublishedPostsToMetrics(state, getContentBrainState, parser) {
+    if (!getContentBrainState || !parser || typeof parser.fingerprint !== "function") {
+      return { added: 0, skipped: 0 };
+    }
+    const cb = getContentBrainState();
+    if (!cb || !Array.isArray(cb.posts)) return { added: 0, skipped: 0 };
+
+    let added = 0, skipped = 0;
+
+    // Indekser eksisterende metrics for kjapp oppslag
+    const byUrl = new Map();
+    const byDateFp = new Map();
+    for (const m of state.postMetrics) {
+      if (m.url) byUrl.set(m.url, m);
+      if (m.date && m.contentFingerprint) {
+        byDateFp.set(m.date + "|" + m.contentFingerprint, m);
+      }
+    }
+
+    for (const p of cb.posts) {
+      if (p.status !== "published") { skipped++; continue; }
+      if (!p.publishedAt || !p.linkedinUrl) { skipped++; continue; }
+
+      const date = String(p.publishedAt).slice(0, 10);
+      const text = ((p.title || "") + " " + (p.body || "")).trim();
+      const fp = parser.fingerprint(text);
+
+      // Allerede tilstede via URL? Bare backfill linkedPostId.
+      if (byUrl.has(p.linkedinUrl)) {
+        const existing = byUrl.get(p.linkedinUrl);
+        if (!existing.linkedPostId) existing.linkedPostId = p.id;
+        skipped++;
+        continue;
+      }
+      // Match via date+fingerprint? Backfill linkedPostId + URL.
+      const key = date + "|" + fp;
+      if (byDateFp.has(key)) {
+        const existing = byDateFp.get(key);
+        if (!existing.linkedPostId) existing.linkedPostId = p.id;
+        if (!existing.url) existing.url = p.linkedinUrl;
+        skipped++;
+        continue;
+      }
+
+      // Ny rad — populer alt vi vet, sett engagement til 0
+      const content = (p.body || p.title || "").trim().slice(0, 280);
+      const entry = {
+        id: "a_" + Math.random().toString(36).slice(2, 10),
+        date,
+        content,
+        url: p.linkedinUrl,
+        contentFingerprint: fp,
+        impressions: 0,
+        likes: 0,
+        comments: 0,
+        shares: 0,
+        engagements: 0,
+        engagementRate: 0,
+        linkedPostId: p.id,
+      };
+      state.postMetrics.push(entry);
+      byUrl.set(p.linkedinUrl, entry);
+      byDateFp.set(key, entry);
+      added++;
+    }
+
+    return { added, skipped };
+  }
+
   // ---------- engager tag management ----------
 
   function setEngagerTag(state, name, category) {
@@ -204,6 +286,7 @@
     mergePostMetrics,
     mergeConnections,
     linkToPipeline,
+    syncPublishedPostsToMetrics,
     setEngagerTag,
     getEngagerTag,
     recordImport,

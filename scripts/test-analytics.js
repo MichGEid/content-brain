@@ -351,6 +351,160 @@ test("recordImport: oppdaterer lastImportAt og caps på 50", () => {
   assert.strictEqual(s.imports[0].filename, "f5.csv");
 });
 
+console.log("\n— syncPublishedPostsToMetrics —");
+
+// Helper: bygger en mini Content Brain-state med posts
+function cbStateOf(posts) {
+  return () => ({ posts });
+}
+
+test("sync: tom Content Brain-state gir 0 added", () => {
+  const s = store.emptyState();
+  const r = store.syncPublishedPostsToMetrics(s, cbStateOf([]), parser);
+  assert.deepStrictEqual(r, { added: 0, skipped: 0 });
+  assert.strictEqual(s.postMetrics.length, 0);
+});
+
+test("sync: published post med URL + dato → ny metric-rad", () => {
+  const s = store.emptyState();
+  const posts = [{
+    id: "p_1",
+    status: "published",
+    publishedAt: "2026-05-20",
+    linkedinUrl: "https://linkedin.com/posts/michel-1",
+    title: "Glue people",
+    body: "AI cannot replace the humans who hold teams together.",
+    pillar: 1,
+  }];
+  const r = store.syncPublishedPostsToMetrics(s, cbStateOf(posts), parser);
+  assert.strictEqual(r.added, 1);
+  assert.strictEqual(s.postMetrics.length, 1);
+  const m = s.postMetrics[0];
+  assert.strictEqual(m.url, "https://linkedin.com/posts/michel-1");
+  assert.strictEqual(m.date, "2026-05-20");
+  assert.strictEqual(m.linkedPostId, "p_1");
+  assert.strictEqual(m.impressions, 0);
+  assert.strictEqual(m.engagements, 0);
+  assert.ok(m.contentFingerprint, "fingerprint må være satt");
+  assert.ok(m.id.startsWith("a_"), "metric-id må prefikses med a_");
+});
+
+test("sync: hopper over post som ikke er published", () => {
+  const s = store.emptyState();
+  const posts = [{
+    id: "p_1", status: "draft",
+    publishedAt: "2026-05-20",
+    linkedinUrl: "https://linkedin.com/posts/x",
+    title: "t", body: "b",
+  }];
+  const r = store.syncPublishedPostsToMetrics(s, cbStateOf(posts), parser);
+  assert.strictEqual(r.added, 0);
+  assert.strictEqual(r.skipped, 1);
+});
+
+test("sync: hopper over published post uten URL", () => {
+  const s = store.emptyState();
+  const posts = [{
+    id: "p_1", status: "published",
+    publishedAt: "2026-05-20",
+    linkedinUrl: "",
+    title: "t", body: "b",
+  }];
+  const r = store.syncPublishedPostsToMetrics(s, cbStateOf(posts), parser);
+  assert.strictEqual(r.added, 0);
+  assert.strictEqual(r.skipped, 1);
+});
+
+test("sync: hopper over published post uten publishedAt", () => {
+  const s = store.emptyState();
+  const posts = [{
+    id: "p_1", status: "published",
+    publishedAt: null,
+    linkedinUrl: "https://linkedin.com/posts/x",
+    title: "t", body: "b",
+  }];
+  const r = store.syncPublishedPostsToMetrics(s, cbStateOf(posts), parser);
+  assert.strictEqual(r.added, 0);
+  assert.strictEqual(r.skipped, 1);
+});
+
+test("sync: matcher eksisterende metric via URL — ingen duplikat", () => {
+  const s = store.emptyState();
+  s.postMetrics.push({
+    id: "a_existing",
+    date: "2026-05-20",
+    url: "https://linkedin.com/posts/michel-1",
+    impressions: 123, likes: 5, comments: 2, shares: 1,
+    engagements: 8, engagementRate: 0.065,
+  });
+  const posts = [{
+    id: "p_1", status: "published",
+    publishedAt: "2026-05-20",
+    linkedinUrl: "https://linkedin.com/posts/michel-1",
+    title: "Glue people", body: "AI cannot replace humans.",
+  }];
+  const r = store.syncPublishedPostsToMetrics(s, cbStateOf(posts), parser);
+  assert.strictEqual(r.added, 0);
+  assert.strictEqual(r.skipped, 1);
+  assert.strictEqual(s.postMetrics.length, 1);
+  // Bestående tall må ikke nulles ut
+  assert.strictEqual(s.postMetrics[0].impressions, 123);
+  // Men linkedPostId må backfilles
+  assert.strictEqual(s.postMetrics[0].linkedPostId, "p_1");
+});
+
+test("sync: matcher via date+fingerprint — backfill URL og linkedPostId", () => {
+  const s = store.emptyState();
+  const text = "Glue people matter when AI cannot replace humans on teams";
+  s.postMetrics.push({
+    id: "a_csv",
+    date: "2026-05-20",
+    contentFingerprint: parser.fingerprint(text),
+    // URL mangler (kan skje med eldre LinkedIn-eksport-format)
+    url: "",
+    impressions: 500, likes: 12,
+  });
+  const posts = [{
+    id: "p_1", status: "published",
+    publishedAt: "2026-05-20",
+    linkedinUrl: "https://linkedin.com/posts/michel-1",
+    title: "Glue people", body: "matter when AI cannot replace humans on teams",
+  }];
+  const r = store.syncPublishedPostsToMetrics(s, cbStateOf(posts), parser);
+  assert.strictEqual(r.added, 0);
+  assert.strictEqual(s.postMetrics.length, 1);
+  assert.strictEqual(s.postMetrics[0].url, "https://linkedin.com/posts/michel-1");
+  assert.strictEqual(s.postMetrics[0].linkedPostId, "p_1");
+});
+
+test("sync: idempotent — andre kjøring er no-op", () => {
+  const s = store.emptyState();
+  const posts = [{
+    id: "p_1", status: "published",
+    publishedAt: "2026-05-20",
+    linkedinUrl: "https://linkedin.com/posts/x",
+    title: "t", body: "b",
+  }];
+  const r1 = store.syncPublishedPostsToMetrics(s, cbStateOf(posts), parser);
+  const r2 = store.syncPublishedPostsToMetrics(s, cbStateOf(posts), parser);
+  assert.strictEqual(r1.added, 1);
+  assert.strictEqual(r2.added, 0);
+  assert.strictEqual(r2.skipped, 1);
+  assert.strictEqual(s.postMetrics.length, 1);
+});
+
+test("sync: defensiv på manglende getContentBrainState eller parser", () => {
+  const s = store.emptyState();
+  assert.deepStrictEqual(
+    store.syncPublishedPostsToMetrics(s, null, parser),
+    { added: 0, skipped: 0 }
+  );
+  assert.deepStrictEqual(
+    store.syncPublishedPostsToMetrics(s, cbStateOf([]), null),
+    { added: 0, skipped: 0 }
+  );
+});
+
 console.log("\n— demo-data —");
 
 // demo-data.js bruker window.AnalyticsParser/Store. I Node er disse ikke globale,

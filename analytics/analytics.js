@@ -63,10 +63,23 @@
     if (!initialized) {
       const { store } = getStores();
       state = store.load();
-      renderShell();
       initialized = true;
-    } else {
-      renderShell();
+    }
+    // Sync hver gang fanen åpnes: idempotent, billig, og fanger nye
+    // Pipeline-poster som har blitt published siden sist.
+    syncPipelinePublishedToMetrics();
+    renderShell();
+  }
+
+  function syncPipelinePublishedToMetrics() {
+    if (!state) return;
+    const { store, parser, cb } = getStores();
+    if (!store || typeof store.syncPublishedPostsToMetrics !== "function") return;
+    if (!parser || !cb || typeof cb.getState !== "function") return;
+    const result = store.syncPublishedPostsToMetrics(state, cb.getState, parser);
+    if (result.added > 0) {
+      store.save(state);
+      console.log("[analytics] Synket " + result.added + " published Pipeline-post(s) til metrikker.");
     }
   }
 
