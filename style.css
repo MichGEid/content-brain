@@ -1893,6 +1893,24 @@ textarea { resize: vertical; font-family: inherit; }
   background: var(--bg-soft);
   font-size: 0.78rem;
 }
+.inspirer-model-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.inspirer-model-picker select {
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.82rem;
+  max-width: 280px;
+}
+.inspirer-model-picker select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
 #inspirer-text {
   width: 100%;
   padding: 0.6rem 0.8rem;

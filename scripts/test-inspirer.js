@@ -126,6 +126,36 @@ test("utelater rotasjons-hint når recentPublished mangler", () => {
   assert.ok(!s.includes("RECENT PUBLISHED ROTATION"));
 });
 
+test("håndterer description som STRING (ikke array) — etter at bruker har redigert", () => {
+  // Bug fra 2026-05-21: lagret Voice Profile har description som string.
+  // Tidligere antok vi alltid array, som krashet med .join is not a function.
+  const s = prompts.buildSystemPrompt({
+    voiceProfile: {
+      description: "thoughtful, precise, short punchy lines",
+      banlist: ["the lesson here is"],
+      rules: ["Norwegian quotes land harder"],
+    },
+    pillarInfo: fixturePillarInfo(),
+  });
+  assert.ok(s.includes("thoughtful, precise"));
+  assert.ok(s.includes("the lesson here is"));
+});
+
+test("håndterer banlist/rules som STRING (linjeseparert)", () => {
+  const s = prompts.buildSystemPrompt({
+    voiceProfile: {
+      description: "punchy",
+      banlist: "the lesson here is\nat the end of the day",
+      rules: "Rule one\nRule two",
+    },
+    pillarInfo: fixturePillarInfo(),
+  });
+  assert.ok(s.includes("the lesson here is"));
+  assert.ok(s.includes("at the end of the day"));
+  assert.ok(s.includes("Rule one"));
+  assert.ok(s.includes("Rule two"));
+});
+
 test("krever raw JSON i output (ingen markdown fence)", () => {
   const s = prompts.buildSystemPrompt({
     voiceProfile: fixtureVoiceProfile(),

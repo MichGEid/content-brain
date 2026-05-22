@@ -40,9 +40,17 @@
    * @returns {string}
    */
   function buildSystemPrompt({ voiceProfile, pillarInfo, recentPublished }) {
-    const banlist = (voiceProfile?.banlist || []).slice(0, 30);
-    const rules = (voiceProfile?.rules || []).slice(0, 20);
-    const desc = (voiceProfile?.description || []).join(" ");
+    // Defensive: description/banlist/rules kan være enten array (DEFAULT_VOICE)
+    // eller string (etter at brukeren har redigert i textarea), avhengig av
+    // hvor Voice Profile-objektet kommer fra.
+    const toArray = v => Array.isArray(v) ? v
+      : (typeof v === "string" && v.trim()) ? v.split(/\r?\n/).map(s => s.trim()).filter(Boolean)
+      : [];
+    const banlist = toArray(voiceProfile?.banlist).slice(0, 30);
+    const rules = toArray(voiceProfile?.rules).slice(0, 20);
+    const desc = Array.isArray(voiceProfile?.description)
+      ? voiceProfile.description.join(" ")
+      : String(voiceProfile?.description || "").trim();
 
     const pillarsBlock = [1, 2, 3, 4].map(n => {
       const info = pillarInfo[n];

@@ -25,7 +25,27 @@
     abortController: null,
     elapsedTimer: null,
     elapsedSec: 0,
+    // Override av provider/model for Inspirasjon. Hvis null → bruk Ghostwriter UI.
+    providerOverride: null,
+    modelOverride: null,
   };
+
+  /**
+   * Hardkodet liste over kjente provider+model-kombinasjoner som er
+   * gode for sortering/scoring (raske, billige, gode på følge-instruksjon).
+   * Vises i dropdown-en på Inspirasjon-tabben. Brukeren kan fortsatt
+   * bytte til en hvilken som helst annen modell via Ghostwriter UI.
+   */
+  const MODEL_PRESETS = [
+    { provider: "gemini", model: "gemini-2.5-flash", label: "Gemini · 2.5-flash", note: "anbefalt for URL-fetch" },
+    { provider: "gemini", model: "gemini-2.5-pro",   label: "Gemini · 2.5-pro",   note: "smartere, stram free tier" },
+    { provider: "gemini", model: "gemini-2.0-flash", label: "Gemini · 2.0-flash", note: "raskere, eldre" },
+    { provider: "claude", model: "claude-sonnet-4-6", label: "Claude · sonnet-4-6", note: "~$0.02/nyhetsbrev, paste-tekst" },
+    { provider: "claude", model: "claude-haiku-4-5",  label: "Claude · haiku-4-5",  note: "billigere, raskere" },
+    { provider: "claude", model: "claude-opus-4-6",   label: "Claude · opus-4-6",   note: "dyrest, for vanskelige caser" },
+    { provider: "ollama", model: "qwen2.5:7b",        label: "Ollama · qwen2.5:7b", note: "lokalt, krever paste-tekst" },
+    { provider: "ollama", model: "llama3.1:8b",       label: "Ollama · llama3.1:8b", note: "lokalt, krever paste-tekst" },
+  ];
 
   function loadUi() {
     try {
@@ -38,6 +58,8 @@
         ui.suggestions = Array.isArray(data.suggestions) ? data.suggestions : [];
         ui.lastFetched = data.lastFetched || null;
         ui.lastSourceUrl = data.lastSourceUrl || "";
+        ui.providerOverride = data.providerOverride || null;
+        ui.modelOverride = data.modelOverride || null;
       }
     } catch (e) {}
   }
@@ -51,6 +73,8 @@
         suggestions: ui.suggestions,
         lastFetched: ui.lastFetched,
         lastSourceUrl: ui.lastSourceUrl,
+        providerOverride: ui.providerOverride,
+        modelOverride: ui.modelOverride,
       }));
     } catch (e) {}
   }
@@ -75,13 +99,27 @@
   }
 
   function getCurrentProvider() {
+    if (ui.providerOverride) return ui.providerOverride;
     const gw = getGhostwriterUi();
     return gw.provider || "gemini";
   }
 
   function getCurrentModel() {
+    if (ui.modelOverride) return ui.modelOverride;
     const gw = getGhostwriterUi();
     return gw.model || null;
+  }
+
+  /**
+   * Hvilken preset matcher nåværende provider+model? Brukes for å sette
+   * default-valgt option i dropdown-en. Hvis ingen preset matcher (f.eks.
+   * brukeren har en custom model satt i Ghostwriter), returnerer null
+   * og dropdown viser "Bruk Ghostwriter-default"-valget.
+   */
+  function findCurrentPreset() {
+    const p = getCurrentProvider();
+    const m = getCurrentModel();
+    return MODEL_PRESETS.find(x => x.provider === p && x.model === m) || null;
   }
 
   function getVoiceProfile() {
@@ -142,6 +180,19 @@
       ? `Sist hentet ${formatRelTime(ui.lastFetched)}${ui.lastSourceUrl ? ` fra ${shortUrl(ui.lastSourceUrl)}` : ""}`
       : "";
 
+    const currentPreset = findCurrentPreset();
+    const currentKey = currentPreset ? `${currentPreset.provider}::${currentPreset.model}` : "__ghostwriter__";
+    const dropdownOptions = `
+      <option value="__ghostwriter__" ${currentKey === "__ghostwriter__" ? "selected" : ""}>
+        Bruk Ghostwriter-default (${escapeHtml(providerLabel)}${getCurrentModel() ? ` · ${escapeHtml(getCurrentModel())}` : ""})
+      </option>
+      ${MODEL_PRESETS.map(p => {
+        const k = `${p.provider}::${p.model}`;
+        const sel = k === currentKey ? "selected" : "";
+        return `<option value="${escapeHtml(k)}" ${sel}>${escapeHtml(p.label)}${p.note ? ` — ${escapeHtml(p.note)}` : ""}</option>`;
+      }).join("")}
+    `;
+
     panel.innerHTML = `
       <div class="panel-head">
         <h2>📥 Inspirasjon</h2>
@@ -151,7 +202,7 @@
       <div class="inspirer-input-row">
         <input type="url" id="inspirer-url" placeholder="${providerSupportsUrl ? 'https://leadershipintech.com/newsletters/…' : 'URL — krever Gemini for auto-fetch'}"
                value="${escapeHtml(ui.url)}"
-               ${providerSupportsUrl ? "" : 'disabled title="Bytt til Gemini i Ghostwriter for URL-fetch, eller paste tekst nedenfor"'} />
+               ${providerSupportsUrl ? "" : 'disabled title="Bytt til en Gemini-modell for URL-fetch, eller paste tekst nedenfor"'} />
         <button class="primary" id="inspirer-fetch" ${ui.isLoading ? "disabled" : ""}>
           ${ui.isLoading ? `Henter… ${ui.elapsedSec}s` : "Hent forslag"}
         </button>
@@ -159,7 +210,12 @@
       </div>
 
       <div class="inspirer-meta-row">
-        <span class="inspirer-provider-chip">Bruker: <strong>${escapeHtml(providerLabel)}</strong>${getCurrentModel() ? ` · ${escapeHtml(getCurrentModel())}` : ""}</span>
+        <label class="inspirer-model-picker">
+          <span class="muted small">Modell:</span>
+          <select id="inspirer-model" ${ui.isLoading ? "disabled" : ""}>
+            ${dropdownOptions}
+          </select>
+        </label>
         <button class="linkbtn" id="inspirer-toggle-textarea">${ui.showTextarea ? "− Skjul" : "+ Paste tekst istedenfor URL"}</button>
         ${fetchedHint ? `<span class="muted small">${escapeHtml(fetchedHint)}</span>` : ""}
       </div>
@@ -248,6 +304,24 @@
       toggleBtn.addEventListener("click", () => {
         ui.showTextarea = !ui.showTextarea;
         saveUi();
+        renderShell();
+        bindEvents();
+      });
+    }
+    const modelSel = $("#inspirer-model");
+    if (modelSel) {
+      modelSel.addEventListener("change", e => {
+        const v = e.target.value;
+        if (v === "__ghostwriter__") {
+          ui.providerOverride = null;
+          ui.modelOverride = null;
+        } else {
+          const [prov, model] = v.split("::");
+          ui.providerOverride = prov;
+          ui.modelOverride = model;
+        }
+        saveUi();
+        // Re-render fordi URL-feltet er disabled på ikke-Gemini-providere
         renderShell();
         bindEvents();
       });
