@@ -165,6 +165,47 @@ test("krever raw JSON i output (ingen markdown fence)", () => {
   assert.ok(s.includes("JSON array"));
 });
 
+test("inkluderer Michel-kontekst med Laerdal + konkurrenter + J2020", () => {
+  const s = prompts.buildSystemPrompt({
+    voiceProfile: fixtureVoiceProfile(),
+    pillarInfo: fixturePillarInfo(),
+  });
+  assert.ok(s.includes("Laerdal"));
+  assert.ok(s.includes("ZOLL"));
+  assert.ok(s.includes("Stryker"));
+  assert.ok(s.includes("J2020"));
+  assert.ok(s.includes("Sørmarka"));
+  assert.ok(s.includes("Content Brain"));
+});
+
+test("inkluderer diversitetsregel for å unngå 3-av-samme-pilar", () => {
+  const s = prompts.buildSystemPrompt({
+    voiceProfile: fixtureVoiceProfile(),
+    pillarInfo: fixturePillarInfo(),
+  });
+  assert.ok(s.toLowerCase().includes("diversity"));
+  // Sjekk at den nevner å begrense seg ved samme pilar
+  assert.ok(s.includes("Pillar 1") && s.includes("only keep the top 1"));
+});
+
+test("inkluderer GOOD og BAD anchor-eksempler", () => {
+  const s = prompts.buildSystemPrompt({
+    voiceProfile: fixtureVoiceProfile(),
+    pillarInfo: fixturePillarInfo(),
+  });
+  assert.ok(s.includes("GOOD ANCHOR"));
+  assert.ok(s.includes("BAD ANCHOR"));
+  // Konkrete fra-eksempler skal være med
+  assert.ok(s.includes("Sørmarka"));
+  assert.ok(s.includes("competitor's AED"));
+});
+
+test("MICHEL_CONTEXT eksporteres som konstant for gjenbruk", () => {
+  assert.ok(typeof prompts.MICHEL_CONTEXT === "string");
+  assert.ok(prompts.MICHEL_CONTEXT.includes("Laerdal"));
+  assert.ok(prompts.MICHEL_CONTEXT.includes("J2020"));
+});
+
 console.log("\n— buildUserPrompt —");
 
 test("med URL: ber modellen hente URL-en", () => {
