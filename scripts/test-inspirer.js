@@ -195,15 +195,68 @@ test("inkluderer GOOD og BAD anchor-eksempler", () => {
   });
   assert.ok(s.includes("GOOD ANCHOR"));
   assert.ok(s.includes("BAD ANCHOR"));
-  // Konkrete fra-eksempler skal være med
+  // Sørmarka skal være i MICHEL_CONTEXT og/eller MOMENT ARCHETYPES
   assert.ok(s.includes("Sørmarka"));
-  assert.ok(s.includes("competitor's AED"));
+  // BAD-anchor-lista skal eksplisitt nevne typiske summary-åpninger
+  assert.ok(s.includes("Gallup research") || s.includes("As a leader"));
 });
 
 test("MICHEL_CONTEXT eksporteres som konstant for gjenbruk", () => {
   assert.ok(typeof prompts.MICHEL_CONTEXT === "string");
   assert.ok(prompts.MICHEL_CONTEXT.includes("Laerdal"));
   assert.ok(prompts.MICHEL_CONTEXT.includes("J2020"));
+});
+
+test("inkluderer MOMENT ARCHETYPES med varierte moment-typer per pilar", () => {
+  const s = prompts.buildSystemPrompt({
+    voiceProfile: fixtureVoiceProfile(),
+    pillarInfo: fixturePillarInfo(),
+  });
+  assert.ok(s.includes("MOMENT ARCHETYPES"));
+  // Pilar 2: skal ha minst 3 ulike Sørmarka/J2020-moment-typer
+  const p2Block = s.split("Pillar 2 (Familie")[1].split("Pillar 3")[0];
+  assert.ok(p2Block.includes("locker room") || p2Block.includes("Saturday"));
+  assert.ok(p2Block.includes("Norwegian phrase"));
+  // Pilar 3: skal ha varierte tech-moment-typer (ikke bare 22:00-bug)
+  const p3Block = s.split("Pillar 3 (Bygger")[1].split("Pillar 4")[0];
+  assert.ok(p3Block.includes("refactor") || p3Block.includes("library") || p3Block.includes("provider"));
+  // Pilar 4: skal nevne MDR/FDA og minst én Laerdal-konkurrent
+  const p4Block = s.split("Pillar 4 (Krysspollinering")[1].split("CRITICAL")[0];
+  assert.ok(p4Block.includes("MDR") || p4Block.includes("FDA"));
+  assert.ok(p4Block.includes("ZOLL") || p4Block.includes("Stryker"));
+});
+
+test("inkluderer eksplisitt forbud mot verbatim-kopiering av GOOD-eksempler", () => {
+  const s = prompts.buildSystemPrompt({
+    voiceProfile: fixtureVoiceProfile(),
+    pillarInfo: fixturePillarInfo(),
+  });
+  assert.ok(s.includes("DO NOT copy the GOOD ANCHOR examples"));
+  assert.ok(s.toLowerCase().includes("regurgitation") || s.toLowerCase().includes("verbatim"));
+});
+
+test("inkluderer forbud mot tilbakehenvisning til artikkelen i hale-setning", () => {
+  const s = prompts.buildSystemPrompt({
+    voiceProfile: fixtureVoiceProfile(),
+    pillarInfo: fixturePillarInfo(),
+  });
+  // Eksplisitt blokkering av "this article shows / echoes / translates"
+  assert.ok(s.includes("This article shows"));
+  assert.ok(s.includes("This echoes"));
+  assert.ok(s.includes("This translates"));
+});
+
+test("GOOD-eksempler er nå hypotetiske mønstre, ikke gjenbrukbare templates", () => {
+  const s = prompts.buildSystemPrompt({
+    voiceProfile: fixtureVoiceProfile(),
+    pillarInfo: fixturePillarInfo(),
+  });
+  // De gamle template-eksemplene (AED-demo, J2020 Gallup, 22:00 Content Brain)
+  // skal nå være erklært som regurgitation-feller, ikke gitt som templates.
+  // Sjekk at de nye GOOD-eksemplene er andre moment (ZOLL patent, 1:1 Tuesday, regex bug)
+  assert.ok(s.includes("ZOLL patent") || s.includes("ZOLL filing"));
+  assert.ok(s.includes("1:1") && s.includes("Tuesday"));
+  assert.ok(s.includes("regex"));
 });
 
 console.log("\n— buildUserPrompt —");

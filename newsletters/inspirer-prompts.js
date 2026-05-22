@@ -105,28 +105,67 @@ Aim to surface articles across DIFFERENT pillars when possible. If three strong 
 
 ANCHOR MOMENT QUALITY — THIS IS WHERE MOST SUGGESTIONS FAIL:
 
-Do NOT paraphrase the article. Do NOT write "this article addresses..." or "Gallup research shows...". Those are descriptions, not anchors.
+The anchor is the FIRST 2-4 sentences of a LinkedIn post Michel could publish. It opens with a specific moment from HIS life and lands on a sharp observation. The reader does not need to be told how the moment connects to the article — the URL handles that.
 
-Find a SPECIFIC moment Michel could open the post with, drawn from his actual life (see WHO MICHEL IS above):
-  - Pillar 1: a moment from work at Laerdal — a 1:1, a team tension, an observation across the SW engineering org. Strategic and observational. NEVER "as a leader, I think...".
-  - Pillar 2: a specific moment at Sørmarka Arena — what a J2020 player did or said. Norwegian phrases from the scene land harder than translated paraphrase. Warm and present-tense.
-  - Pillar 3: a concrete technical moment from his own building — a bug he hit at 22:00 in Content Brain, a tool decision, a coding session that surprised him. Name the tool, the choice, the moment.
-  - Pillar 4: a specific signal he picked up — a regulatory shift (MDR, FDA), a competitor move (ZOLL/Stryker/Philips/Medtronic), an export-policy detail. Name actors, name tensions.
+MOMENT ARCHETYPES — pick from this menu (don't reuse the exact same ones every time):
 
-GOOD ANCHOR (Pillar 4, from a "study competitors" article):
-"The first time I sat down with a competitor's AED — not as a demo, as an actual user — I noticed three things they had fixed that we hadn't. Sinofsky's point that competitors aren't static hits harder when you've felt the gap yourself."
+  Pillar 1 (Connective leadership) — moments at Laerdal:
+    • A 1:1 where a team member surfaced a tension you hadn't seen
+    • A budget meeting that exposed a structural problem in the org
+    • An onboarding conversation that showed what your culture rewards
+    • A board-level discussion at Laerdal where you saw a pattern
+    • A post-mortem after a project where the failure mode was organizational
+    • The moment you decided to stop doing something the team expected you to do
 
-GOOD ANCHOR (Pillar 1 + 2 bridge, from a "hope as leadership" article):
-"My J2020 girls at Sørmarka Arena need exactly the three things Gallup measures in adult employees — clear goals, multiple paths forward, ownership over their own work. Hope isn't softness. It's structure."
+  Pillar 2 (Familie & hockey) — moments at Sørmarka Arena or at home:
+    • Before a game: the locker room, what a J2020 player said
+    • After a goal — or after a loss — what changed
+    • A parent's question on the bench
+    • Saturday morning rituals, daughter's hockey bag, the drive to the arena
+    • A specific Norwegian phrase one of the girls used
+    • Watching a teammate help someone she had just been competing against
 
-GOOD ANCHOR (Pillar 3, from an "AI productivity" article):
-"Ten phases of Content Brain in three weeks with Claude and Gemini. Not 'AI did it all' — the real shift was that I changed how I work after 22:00. Productivity gains come from rewiring, not from the technology itself."
+  Pillar 3 (Bygger & lærer) — moments in Michel's own building:
+    • A bug at 22:00 in Content Brain (or some other project he can name)
+    • Switching providers (Ollama → Gemini → Claude) and what it revealed
+    • A refactor that broke a test he didn't know existed
+    • A choice between two libraries / two architectures
+    • The first time a deploy worked end-to-end
+    • Reading his own old code and realizing what he'd learned
+    • Pair-coding with an LLM and the moment it stopped feeling like magic
+
+  Pillar 4 (Krysspollinering) — moments at the edges of his domains:
+    • An MDR or FDA clause that surprised him
+    • A competitor (ZOLL/Stryker/Philips/Medtronic) doing something he had to study
+    • A conversation with a Norwegian medtech founder
+    • An ISO 13485 audit detail that reveals industry maturity
+    • A regulatory signal from Brussels or Washington that affects exporters
+    • A board discussion at National Health & Life Science Export
+    • Crossing wires between two industries that don't usually meet
+
+CRITICAL ANCHOR RULES — these are the most common failure modes, do NOT make them:
+
+1. DO NOT copy the GOOD ANCHOR examples below verbatim or near-verbatim. They show SHAPE, not content. If the article is about a topic close to the example, find a DIFFERENT moment from the archetypes above. Re-using the example AED scene, the J2020 Gallup scene, or the Content Brain 22:00 scene every time is a regurgitation tell.
+
+2. DO NOT end the anchor with a sentence that ties back to the article. No "This article shows that…", no "This echoes the point about…", no "This translates directly to…". The reader has the URL. End on Michel's own observation.
+
+3. DO NOT write summaries of the article. "Gallup research consistently points to…" is the article talking, not Michel. Find what Michel saw.
+
+GOOD ANCHOR (Pillar 4, hypothetical — pattern, not template):
+"Two weeks ago I read a ZOLL patent filing that quietly described a feature we'd been debating internally for six months. They had not just landed there first — they had reasoned about the trade-off in a way our last review missed."
+
+GOOD ANCHOR (Pillar 1, hypothetical — pattern, not template):
+"In a 1:1 last Tuesday, a senior engineer asked why we kept rewarding the people who optimized inside the team but never the ones who reduced friction across teams. I didn't have a good answer. I think the answer is structural."
+
+GOOD ANCHOR (Pillar 3, hypothetical — pattern, not template):
+"I spent twenty minutes last night chasing a bug that turned out to be a single character in a regex. The frustrating part wasn't the typo. It was that I had written the regex three weeks earlier and had absolutely no memory of why."
 
 BAD ANCHOR (avoid these shapes — they are summaries, not anchors):
-- "This article argues that studying competitors is important."
-- "Gallup research consistently points to hope as the top psychological need."
-- "The instinct is often to remove constraints..."
-- "As a leader, I believe that..."
+  • "This article argues that studying competitors is important."
+  • "Gallup research consistently points to hope as the top psychological need."
+  • "The instinct is often to remove constraints..."
+  • "As a leader, I believe that..."
+  • Anything ending in "This article shows…", "This echoes…", or "This translates to…".
 
 OUTPUT FORMAT:
 Return ONLY a JSON array. No prose before or after. No markdown code fence. Just the raw JSON. Use this shape:
