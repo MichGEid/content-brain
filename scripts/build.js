@@ -64,6 +64,15 @@ const ANALYTICS_MODULES = [
   "analytics/analytics.js",
 ];
 
+// Newsletter Inspirer-moduler. Rekkefølgen er viktig:
+//   inspirer-prompts → inspirer
+// inspirer leser inspirer-prompts og ghostwriter.api/voiceProfile, så
+// disse må lastes etter ghostwriter-modulene i HTML-rekkefølgen.
+const NEWSLETTERS_MODULES = [
+  "newsletters/inspirer-prompts.js",
+  "newsletters/inspirer.js",
+];
+
 const DIST = path.join(ROOT, "dist");
 const BUNDLED_HTML = path.join(DIST, "index.html");
 
@@ -97,6 +106,10 @@ const analyticsModules = ANALYTICS_MODULES.map(rel => ({
   rel,
   content: read(path.join(ROOT, rel)),
 }));
+const newslettersModules = NEWSLETTERS_MODULES.map(rel => ({
+  rel,
+  content: read(path.join(ROOT, rel)),
+}));
 
 // VIKTIG: bruker callback-formen av .replace() slik at `$`-tegn i kildekoden
 // (f.eks. `$$`) ikke tolkes som spesielle replace-mønstre.
@@ -121,6 +134,11 @@ const scriptReplacements = [
     body: () => m.content,
   })),
   ...analyticsModules.map(m => ({
+    re: new RegExp(`<script\\s+src=["']${m.rel.replace(/[/.]/g, c => "\\" + c)}["']><\\/script>`, "i"),
+    label: m.rel,
+    body: () => m.content,
+  })),
+  ...newslettersModules.map(m => ({
     re: new RegExp(`<script\\s+src=["']${m.rel.replace(/[/.]/g, c => "\\" + c)}["']><\\/script>`, "i"),
     label: m.rel,
     body: () => m.content,

@@ -191,6 +191,7 @@
     if (name === "capture")     renderCaptureRecent();
     if (name === "ghostwriter" && window.Ghostwriter?.init) window.Ghostwriter.init();
     if (name === "analytics"   && window.Analytics?.init)   window.Analytics.init();
+    if (name === "inspirasjon" && window.NewsletterInspirer?.init) window.NewsletterInspirer.init();
   }
 
   $$(".tab").forEach(t => t.addEventListener("click", () => activateTab(t.dataset.tab)));
