@@ -28,6 +28,10 @@
     // Override av provider/model for Inspirasjon. Hvis null → bruk Ghostwriter UI.
     providerOverride: null,
     modelOverride: null,
+    // Manuell modus: bygger prompt lokalt, brukeren paster i claude.ai/ChatGPT,
+    // kopierer JSON-svaret tilbake. Sidesteg av API-kostnad og rate limits.
+    mode: "auto",         // "auto" | "manual"
+    manualResponse: "",   // Pastet LLM-svar i manuell modus
   };
 
   /**
@@ -60,6 +64,8 @@
         ui.lastSourceUrl = data.lastSourceUrl || "";
         ui.providerOverride = data.providerOverride || null;
         ui.modelOverride = data.modelOverride || null;
+        ui.mode = data.mode === "manual" ? "manual" : "auto";
+        ui.manualResponse = data.manualResponse || "";
       }
     } catch (e) {}
   }
@@ -75,6 +81,8 @@
         lastSourceUrl: ui.lastSourceUrl,
         providerOverride: ui.providerOverride,
         modelOverride: ui.modelOverride,
+        mode: ui.mode,
+        manualResponse: ui.manualResponse,
       }));
     } catch (e) {}
   }
@@ -210,29 +218,45 @@
       }).join("")}
     `;
 
+    const isManual = ui.mode === "manual";
+
     panel.innerHTML = `
       <div class="panel-head">
         <h2>📥 Inspirasjon</h2>
-        <p class="muted">Lim inn en nyhetsbrev-URL → ${providerLabel} foreslår 2-3 artikler som passer din 4-pilar-rotasjon.</p>
+        <p class="muted">${isManual
+          ? "Manuell modus — bygg prompt lokalt, kjør i claude.ai eller annet chat-UI, paste JSON-svaret tilbake."
+          : `Lim inn en nyhetsbrev-URL → ${providerLabel} foreslår 2-3 artikler som passer din 4-pilar-rotasjon.`}</p>
+      </div>
+
+      <div class="inspirer-mode-toggle">
+        <button class="${ui.mode === "auto" ? "primary" : "linkbtn"}" data-mode="auto">🤖 Auto</button>
+        <button class="${ui.mode === "manual" ? "primary" : "linkbtn"}" data-mode="manual">✋ Manuell</button>
+        <span class="muted small">${isManual
+          ? "Bruker Pro-abonnementet ditt (ingen API-kostnad)"
+          : "Bruker valgt provider (API-kall)"}</span>
       </div>
 
       <div class="inspirer-input-row">
-        <input type="url" id="inspirer-url" placeholder="${providerSupportsUrl ? 'https://leadershipintech.com/newsletters/…' : 'URL — krever Gemini for auto-fetch'}"
+        <input type="url" id="inspirer-url" placeholder="${isManual ? 'https://leadershipintech.com/newsletters/… (brukes til å bygge prompten)' : (providerSupportsUrl ? 'https://leadershipintech.com/newsletters/…' : 'URL — krever Gemini for auto-fetch')}"
                value="${escapeHtml(ui.url)}"
-               ${providerSupportsUrl ? "" : 'disabled title="Bytt til en Gemini-modell for URL-fetch, eller paste tekst nedenfor"'} />
-        <button class="primary" id="inspirer-fetch" ${ui.isLoading ? "disabled" : ""}>
-          ${ui.isLoading ? `Henter… ${ui.elapsedSec}s` : "Hent forslag"}
-        </button>
-        ${ui.isLoading ? `<button class="linkbtn" id="inspirer-abort">Avbryt</button>` : ""}
+               ${(!isManual && !providerSupportsUrl) ? 'disabled title="Bytt til en Gemini-modell for URL-fetch, eller paste tekst nedenfor"' : ""} />
+        ${isManual
+          ? `<button class="primary" id="inspirer-build-prompt">📋 Bygg prompt</button>`
+          : `<button class="primary" id="inspirer-fetch" ${ui.isLoading ? "disabled" : ""}>
+              ${ui.isLoading ? `Henter… ${ui.elapsedSec}s` : "Hent forslag"}
+            </button>
+            ${ui.isLoading ? `<button class="linkbtn" id="inspirer-abort">Avbryt</button>` : ""}`}
       </div>
 
       <div class="inspirer-meta-row">
-        <label class="inspirer-model-picker">
-          <span class="muted small">Modell:</span>
-          <select id="inspirer-model" ${ui.isLoading ? "disabled" : ""}>
-            ${dropdownOptions}
-          </select>
-        </label>
+        ${isManual
+          ? `<span class="muted small">Modellvalg gjelder bare i Auto-modus.</span>`
+          : `<label class="inspirer-model-picker">
+              <span class="muted small">Modell:</span>
+              <select id="inspirer-model" ${ui.isLoading ? "disabled" : ""}>
+                ${dropdownOptions}
+              </select>
+            </label>`}
         <button class="linkbtn" id="inspirer-toggle-textarea">${ui.showTextarea ? "− Skjul" : "+ Paste tekst istedenfor URL"}</button>
         ${fetchedHint ? `<span class="muted small">${escapeHtml(fetchedHint)}</span>` : ""}
       </div>
@@ -241,10 +265,55 @@
         <textarea id="inspirer-text" rows="8" placeholder="Lim inn hele nyhetsbrev-teksten her…">${escapeHtml(ui.text)}</textarea>
       ` : ""}
 
+      ${isManual ? renderManualSection() : ""}
+
       <div id="inspirer-results" class="inspirer-results">
-        ${hasSuggestions ? renderSuggestions() : (ui.isLoading ? renderLoadingState() : renderEmptyState())}
+        ${hasSuggestions ? renderSuggestions() : (ui.isLoading ? renderLoadingState() : (isManual ? "" : renderEmptyState()))}
       </div>
     `;
+  }
+
+  function renderManualSection() {
+    // Beregner om vi kan vise prompten (krever url eller text)
+    const canBuild = !!(ui.url || ui.text);
+    return `
+      <div class="inspirer-manual">
+        <details ${ui.url || ui.text ? "open" : ""}>
+          <summary>📋 Generert prompt (klikk Kopier, lim inn i claude.ai eller annet chat-UI)</summary>
+          ${canBuild
+            ? `<div class="inspirer-manual-prompt-wrap">
+                <textarea id="inspirer-manual-prompt" rows="10" readonly>${escapeHtml(buildPromptForManualMode())}</textarea>
+                <button class="linkbtn" id="inspirer-copy-prompt">📋 Kopier prompt</button>
+              </div>`
+            : `<p class="muted small">Lim inn URL eller paste tekst over først, så genererer vi prompten.</p>`}
+        </details>
+
+        <details ${ui.manualResponse ? "open" : ""}>
+          <summary>📥 Lim inn JSON-svar fra LLM-en</summary>
+          <textarea id="inspirer-manual-response" rows="8" placeholder='Lim inn JSON-arrayet du fikk tilbake (typisk noe sånt som [{"pillar":1, "title":"…", "anchor":"…", …}])'>${escapeHtml(ui.manualResponse)}</textarea>
+          <div class="inspirer-manual-actions">
+            <button class="primary" id="inspirer-parse-manual">Tolk svar → suggestion-cards</button>
+            <button class="linkbtn" id="inspirer-clear-manual">Tøm felt</button>
+          </div>
+        </details>
+      </div>
+    `;
+  }
+
+  function buildPromptForManualMode() {
+    if (!window.NewsletterInspirer?.prompts?.buildCombinedPrompt) return "";
+    const voiceProfile = getVoiceProfile();
+    const pillarInfo = getPillarInfo();
+    const recentPublished = getRecentPublished(8);
+    const recentAnchors = getRecentAnchors(8);
+    return window.NewsletterInspirer.prompts.buildCombinedPrompt({
+      voiceProfile,
+      pillarInfo,
+      recentPublished,
+      recentAnchors,
+      url: ui.url || "",
+      text: ui.text || "",
+    });
   }
 
   function renderLoadingState() {
@@ -351,6 +420,77 @@
     if (abortBtn) {
       abortBtn.addEventListener("click", () => {
         if (ui.abortController) ui.abortController.abort();
+      });
+    }
+
+    // Mode-toggle
+    $$("[data-mode]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        ui.mode = btn.dataset.mode === "manual" ? "manual" : "auto";
+        saveUi();
+        renderShell();
+        bindEvents();
+      });
+    });
+
+    // Manuell modus: bygg prompt
+    const buildPromptBtn = $("#inspirer-build-prompt");
+    if (buildPromptBtn) {
+      buildPromptBtn.addEventListener("click", () => {
+        // Trigger re-render så prompt-textarea oppdaterer seg
+        renderShell();
+        bindEvents();
+        // Scroll prompten i view
+        const promptEl = $("#inspirer-manual-prompt");
+        if (promptEl) {
+          promptEl.scrollIntoView({ behavior: "smooth", block: "center" });
+          promptEl.select();
+        }
+      });
+    }
+
+    // Manuell modus: kopier prompt
+    const copyPromptBtn = $("#inspirer-copy-prompt");
+    if (copyPromptBtn) {
+      copyPromptBtn.addEventListener("click", async () => {
+        const promptEl = $("#inspirer-manual-prompt");
+        if (!promptEl) return;
+        try {
+          await navigator.clipboard.writeText(promptEl.value);
+          copyPromptBtn.textContent = "✓ Kopiert!";
+          setTimeout(() => { copyPromptBtn.textContent = "📋 Kopier prompt"; }, 1500);
+        } catch (e) {
+          // Fallback: select textarea og la bruker Cmd+C selv
+          promptEl.select();
+          promptEl.setSelectionRange(0, 99999);
+          alert("Kunne ikke kopiere automatisk — trykk Cmd+C for å kopiere det markerte feltet.");
+        }
+      });
+    }
+
+    // Manuell modus: paste-respons
+    const manualResponseEl = $("#inspirer-manual-response");
+    if (manualResponseEl) {
+      manualResponseEl.addEventListener("input", e => {
+        ui.manualResponse = e.target.value;
+        saveUi();
+      });
+    }
+
+    // Manuell modus: parse pastet svar
+    const parseManualBtn = $("#inspirer-parse-manual");
+    if (parseManualBtn) {
+      parseManualBtn.addEventListener("click", onParseManualResponse);
+    }
+
+    // Manuell modus: tøm respons-felt
+    const clearManualBtn = $("#inspirer-clear-manual");
+    if (clearManualBtn) {
+      clearManualBtn.addEventListener("click", () => {
+        ui.manualResponse = "";
+        saveUi();
+        renderShell();
+        bindEvents();
       });
     }
 
@@ -464,6 +604,34 @@
       renderShell();
       bindEvents();
     }
+  }
+
+  // ----------------------------- manual mode parser -----------------------------
+
+  function onParseManualResponse() {
+    if (!ui.manualResponse || !ui.manualResponse.trim()) {
+      alert("Lim inn LLM-svaret først (JSON-arrayet du fikk fra claude.ai/ChatGPT/Gemini).");
+      return;
+    }
+    if (!window.NewsletterInspirer?.prompts?.parseResponse) {
+      alert("inspirer-prompts.js er ikke lastet.");
+      return;
+    }
+    const parsed = window.NewsletterInspirer.prompts.parseResponse(ui.manualResponse);
+    if (!parsed.ok) {
+      alert(`Kunne ikke tolke svar: ${parsed.error}\n\nForventer en JSON-array. Sjekk at du paster hele svaret inkludert klammeparenteser [ ... ].`);
+      return;
+    }
+    if (!parsed.suggestions.length) {
+      alert("LLM-svaret tolket OK, men ingen gyldige forslag funnet. Sjekk at JSON-en har pillar/title/anchor-felt.");
+      return;
+    }
+    ui.suggestions = parsed.suggestions;
+    ui.lastFetched = new Date().toISOString();
+    ui.lastSourceUrl = ui.url || "(manuelt — pastet svar)";
+    saveUi();
+    renderShell();
+    bindEvents();
   }
 
   // ----------------------------- card actions -----------------------------

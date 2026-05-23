@@ -1893,6 +1893,59 @@ textarea { resize: vertical; font-family: inherit; }
   background: var(--bg-soft);
   font-size: 0.78rem;
 }
+.inspirer-mode-toggle {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.6rem;
+  flex-wrap: wrap;
+}
+.inspirer-mode-toggle button {
+  padding: 4px 10px;
+  font-size: 0.85rem;
+}
+.inspirer-manual {
+  margin: 1rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+.inspirer-manual details {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.9rem;
+  background: var(--bg-soft);
+}
+.inspirer-manual summary {
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.9rem;
+  padding: 0.2rem 0;
+  user-select: none;
+}
+.inspirer-manual-prompt-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.inspirer-manual textarea {
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.82rem;
+  margin-top: 0.5rem;
+  resize: vertical;
+}
+.inspirer-manual-actions {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
 .inspirer-model-picker {
   display: inline-flex;
   align-items: center;

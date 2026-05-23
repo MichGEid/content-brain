@@ -464,5 +464,52 @@ test("kan ekstrahere JSON-array fra svar med fence + omkringliggende whitespace"
   assert.strictEqual(r.suggestions[0].pillar, 4);
 });
 
+console.log("\n— buildCombinedPrompt (manuell modus) —");
+
+test("buildCombinedPrompt fletter system + user med tydelig skille", () => {
+  const combined = prompts.buildCombinedPrompt({
+    voiceProfile: fixtureVoiceProfile(),
+    pillarInfo: fixturePillarInfo(),
+    url: "https://example.com/newsletter",
+  });
+  // Skal inneholde system-deler (pillars + michel-context)
+  assert.ok(combined.includes("Pillar 1"));
+  assert.ok(combined.includes("Laerdal"));
+  // Skal inneholde user-prompten
+  assert.ok(combined.includes("https://example.com/newsletter"));
+  // Skal ha tydelig skille (---)
+  assert.ok(combined.includes("---"));
+  assert.ok(combined.includes("USER INPUT"));
+});
+
+test("buildCombinedPrompt med både URL og tekst flettes inn", () => {
+  const combined = prompts.buildCombinedPrompt({
+    voiceProfile: fixtureVoiceProfile(),
+    pillarInfo: fixturePillarInfo(),
+    url: "https://example.com",
+    text: "Article 1: Foo",
+  });
+  assert.ok(combined.includes("https://example.com"));
+  assert.ok(combined.includes("Article 1: Foo"));
+});
+
+test("buildCombinedPrompt med recentAnchors inkluderer eksklusjons-listen", () => {
+  const combined = prompts.buildCombinedPrompt({
+    voiceProfile: fixtureVoiceProfile(),
+    pillarInfo: fixturePillarInfo(),
+    url: "https://x.com",
+    recentAnchors: ["Anker fra forrige uke som er lang nok til å bli inkludert."],
+  });
+  assert.ok(combined.includes("RECENTLY USED ANCHORS"));
+  assert.ok(combined.includes("Anker fra forrige uke"));
+});
+
+test("buildCombinedPrompt kaster når både URL og tekst er tomme", () => {
+  assert.throws(() => prompts.buildCombinedPrompt({
+    voiceProfile: fixtureVoiceProfile(),
+    pillarInfo: fixturePillarInfo(),
+  }));
+});
+
 console.log(`\n${passed} passed · ${failed} failed`);
 process.exit(failed === 0 ? 0 : 1);

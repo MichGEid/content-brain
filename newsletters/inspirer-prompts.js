@@ -294,11 +294,30 @@ If nothing in the newsletter fits, return [].`;
     return { ok: true, suggestions: cleaned };
   }
 
+  /**
+   * Bygg én kombinert prompt for paste i claude.ai / ChatGPT / Gemini chat
+   * (manuell modus). Chat-UI-er har vanligvis ikke separat system-input,
+   * så vi flettes system + user til en enkelt melding med tydelig
+   * skille.
+   *
+   * @param {Object} opts - Samme felt som buildSystemPrompt + url/text fra buildUserPrompt
+   * @returns {string}
+   */
+  function buildCombinedPrompt(opts) {
+    const system = buildSystemPrompt(opts);
+    const userPart = buildUserPrompt({
+      url: opts && opts.url,
+      text: opts && opts.text,
+    });
+    return `${system}\n\n---\n\nUSER INPUT:\n\n${userPart}`;
+  }
+
   // ----------------------------- export -----------------------------
 
   const InspirerPrompts = {
     buildSystemPrompt,
     buildUserPrompt,
+    buildCombinedPrompt,
     parseResponse,
     validateAndNormalize,
     SUGGESTION_SCHEMA_DESCRIPTION,
