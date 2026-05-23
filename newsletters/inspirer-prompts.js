@@ -53,9 +53,10 @@
    * @param {Object} opts.pillarInfo - PILLAR_INFO fra ghostwriter.prompts
    * @param {Array<{pillar:number,publishedAt:string}>} [opts.recentPublished] - 8 siste publiserte posts for rotasjons-hint
    * @param {Array<string>} [opts.recentAnchors] - Anker-tekster fra siste 8 Inspirasjon-tilføyelser; gir LLM eksklusjons-liste så samme scene ikke kommer to ganger
+   * @param {Array<{pillar:number,status:string,title:string,body:string,publishedAt?:string}>} [opts.michelPosts] - Michels egne poster (published + draft + ready) for stemme- og topic-kontekst
    * @returns {string}
    */
-  function buildSystemPrompt({ voiceProfile, pillarInfo, recentPublished, recentAnchors }) {
+  function buildSystemPrompt({ voiceProfile, pillarInfo, recentPublished, recentAnchors, michelPosts }) {
     // Defensive: description/banlist/rules kan være enten array (DEFAULT_VOICE)
     // eller string (etter at brukeren har redigert i textarea), avhengig av
     // hvor Voice Profile-objektet kommer fra.
@@ -94,6 +95,27 @@
         `\n\nIf an article in this newsletter naturally maps to one of the scenes above, find a DIFFERENT moment from MICHEL'S CONTEXT or the MOMENT ARCHETYPES menu. Repeating a scene immediately makes the post feel canned.`
       : "";
 
+    // Michels egne poster (published, ready, draft) for stemme-referanse + topic-bevissthet.
+    // Lar LLM se hans faktiske skriving, ikke bare en beskrivelse, og foreslå komplementære
+    // vinkler istedenfor duplikater.
+    const cleanedMichelPosts = Array.isArray(michelPosts)
+      ? michelPosts
+          .filter(p => p && p.title && p.body)
+          .slice(0, 12)
+      : [];
+    const michelPostsBlock = cleanedMichelPosts.length
+      ? `\nMICHEL'S OWN POSTS (his actual writing — published and in-progress. Use these to: (1) match his voice in the anchor, (2) avoid topics he's already covered, (3) find complementary angles for new articles):\n` +
+        cleanedMichelPosts.map((p, i) => {
+          const status = p.status === "published" ? "PUBLISHED" : (p.status === "ready" ? "READY" : "DRAFT");
+          const date = p.publishedAt ? ` (${String(p.publishedAt).slice(0, 10)})` : "";
+          const title = String(p.title).trim().slice(0, 160);
+          const body = String(p.body).trim();
+          const bodyTrimmed = body.length > 320 ? body.slice(0, 317) + "…" : body;
+          return `  ${i + 1}. [Pillar ${p.pillar || "?"} · ${status}${date}] ${title}\n     ${bodyTrimmed.replace(/\n+/g, " ")}`;
+        }).join("\n\n") +
+        `\n\nWhen you generate a new anchor for this newsletter: stay in the same voice patterns you see above (specific moments, sharp landings, no abstract preambles). If a candidate article overlaps clearly with a published or ready post, pick a different article OR find a different angle that doesn't duplicate.`
+      : "";
+
     return `You are an editorial scout for Michel Eid. He publishes one LinkedIn post per week following a four-pillar rotation. Your job is to read a newsletter and pick 2-3 articles that would make the strongest posts for HIM specifically — not for a generic tech leader.
 
 ${MICHEL_CONTEXT}
@@ -112,6 +134,7 @@ WRITING RULES:
 ${rules.length ? rules.map((r, i) => `  ${i + 1}. ${r}`).join("\n") : "  (none)"}
 ${recentBlock}
 ${recentAnchorsBlock}
+${michelPostsBlock}
 
 YOUR TASK:
 Read the newsletter and pick 2-3 articles that would make the strongest LinkedIn posts for Michel. Skip articles that are sponsored, off-topic, or generic. It's OK to return fewer than 3 if quality is low — but always return at least 1 if anything works.

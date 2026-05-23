@@ -175,6 +175,36 @@
     } catch (e) { return []; }
   }
 
+  /**
+   * Michels egne poster (published + draft + ready, ikke idea) for å gi LLM
+   * stemme-referanse og topic-bevissthet. Sorteres så published kommer først
+   * (sterkeste stemme-signal), så ready, så draft, hver gruppe nyeste først.
+   */
+  function getMichelPosts(n) {
+    try {
+      const cb = window.ContentBrain?.getState?.();
+      if (!cb?.posts) return [];
+      const statusOrder = { published: 0, ready: 1, draft: 2 };
+      return cb.posts
+        .filter(p => p && p.title && p.body && statusOrder[p.status] !== undefined)
+        .sort((a, b) => {
+          const so = statusOrder[a.status] - statusOrder[b.status];
+          if (so !== 0) return so;
+          const dateA = a.publishedAt || a.capturedAt || "";
+          const dateB = b.publishedAt || b.capturedAt || "";
+          return dateB.localeCompare(dateA);
+        })
+        .slice(0, n || 12)
+        .map(p => ({
+          pillar: p.pillar,
+          status: p.status,
+          title: p.title,
+          body: p.body,
+          publishedAt: p.publishedAt || null,
+        }));
+    } catch (e) { return []; }
+  }
+
   // ----------------------------- render -----------------------------
 
   function init() {
@@ -306,11 +336,13 @@
     const pillarInfo = getPillarInfo();
     const recentPublished = getRecentPublished(8);
     const recentAnchors = getRecentAnchors(8);
+    const michelPosts = getMichelPosts(12);
     return window.NewsletterInspirer.prompts.buildCombinedPrompt({
       voiceProfile,
       pillarInfo,
       recentPublished,
       recentAnchors,
+      michelPosts,
       url: ui.url || "",
       text: ui.text || "",
     });
@@ -545,8 +577,9 @@
     const pillarInfo = getPillarInfo();
     const recentPublished = getRecentPublished(8);
     const recentAnchors = getRecentAnchors(8);
+    const michelPosts = getMichelPosts(12);
 
-    const system = prompts.buildSystemPrompt({ voiceProfile, pillarInfo, recentPublished, recentAnchors });
+    const system = prompts.buildSystemPrompt({ voiceProfile, pillarInfo, recentPublished, recentAnchors, michelPosts });
     const userPrompt = prompts.buildUserPrompt({
       url: willUseUrl ? url : "",
       text: willUseText ? text : "",

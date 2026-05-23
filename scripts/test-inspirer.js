@@ -464,6 +464,101 @@ test("kan ekstrahere JSON-array fra svar med fence + omkringliggende whitespace"
   assert.strictEqual(r.suggestions[0].pillar, 4);
 });
 
+console.log("\n— MICHEL'S OWN POSTS-blokken —");
+
+function fixtureMichelPosts() {
+  return [
+    { pillar: 1, status: "published", title: "Hope as structure", body: "Last Tuesday in a 1:1 a senior engineer asked me…", publishedAt: "2026-05-10" },
+    { pillar: 4, status: "ready", title: "MDR audit reveal", body: "Three months into the MDR transition…" },
+    { pillar: 3, status: "draft", title: "Refactor that broke", body: "I spent twenty minutes chasing a regex…" },
+  ];
+}
+
+test("michelPosts: blokk inkluderes når posts er gitt", () => {
+  const s = prompts.buildSystemPrompt({
+    voiceProfile: fixtureVoiceProfile(),
+    pillarInfo: fixturePillarInfo(),
+    michelPosts: fixtureMichelPosts(),
+  });
+  assert.ok(s.includes("MICHEL'S OWN POSTS"));
+  assert.ok(s.includes("Hope as structure"));
+  assert.ok(s.includes("MDR audit reveal"));
+  assert.ok(s.includes("Refactor that broke"));
+  // Status-merking
+  assert.ok(s.includes("PUBLISHED"));
+  assert.ok(s.includes("READY"));
+  assert.ok(s.includes("DRAFT"));
+});
+
+test("michelPosts: blokk utelates når posts mangler eller er tom", () => {
+  const s1 = prompts.buildSystemPrompt({
+    voiceProfile: fixtureVoiceProfile(),
+    pillarInfo: fixturePillarInfo(),
+  });
+  assert.ok(!s1.includes("MICHEL'S OWN POSTS"));
+  const s2 = prompts.buildSystemPrompt({
+    voiceProfile: fixtureVoiceProfile(),
+    pillarInfo: fixturePillarInfo(),
+    michelPosts: [],
+  });
+  assert.ok(!s2.includes("MICHEL'S OWN POSTS"));
+});
+
+test("michelPosts: cap på 12 poster", () => {
+  const many = Array.from({ length: 30 }, (_, i) => ({
+    pillar: ((i % 4) + 1),
+    status: "published",
+    title: `Post ${i}`,
+    body: `Body of post ${i}, sufficiently long.`,
+  }));
+  const s = prompts.buildSystemPrompt({
+    voiceProfile: fixtureVoiceProfile(),
+    pillarInfo: fixturePillarInfo(),
+    michelPosts: many,
+  });
+  assert.ok(s.includes("Post 0"));
+  assert.ok(s.includes("Post 11"));
+  assert.ok(!s.includes("Post 12"));
+  assert.ok(!s.includes("Post 29"));
+});
+
+test("michelPosts: body trunkeres på 320 tegn med ellipse", () => {
+  const long = "x".repeat(500);
+  const s = prompts.buildSystemPrompt({
+    voiceProfile: fixtureVoiceProfile(),
+    pillarInfo: fixturePillarInfo(),
+    michelPosts: [{ pillar: 1, status: "published", title: "Long one", body: long }],
+  });
+  assert.ok(s.includes("…"));
+  assert.ok(!s.includes("x".repeat(330))); // skal ikke ha full 500-x-streng
+});
+
+test("michelPosts: poster uten title eller body filtreres bort", () => {
+  const s = prompts.buildSystemPrompt({
+    voiceProfile: fixtureVoiceProfile(),
+    pillarInfo: fixturePillarInfo(),
+    michelPosts: [
+      { pillar: 1, status: "published", title: "", body: "no title" },
+      { pillar: 1, status: "published", title: "no body", body: "" },
+      { pillar: 1, status: "published", title: "OK", body: "valid post body" },
+    ],
+  });
+  assert.ok(s.includes("OK"));
+  assert.ok(!s.includes("no title"));
+  assert.ok(!s.includes("no body"));
+});
+
+test("michelPosts: buildCombinedPrompt forwarder michelPosts", () => {
+  const combined = prompts.buildCombinedPrompt({
+    voiceProfile: fixtureVoiceProfile(),
+    pillarInfo: fixturePillarInfo(),
+    michelPosts: fixtureMichelPosts(),
+    url: "https://example.com",
+  });
+  assert.ok(combined.includes("MICHEL'S OWN POSTS"));
+  assert.ok(combined.includes("Hope as structure"));
+});
+
 console.log("\n— buildCombinedPrompt (manuell modus) —");
 
 test("buildCombinedPrompt fletter system + user med tydelig skille", () => {

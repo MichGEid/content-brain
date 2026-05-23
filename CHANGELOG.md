@@ -1,5 +1,48 @@
 # Changelog
 
+## v0.12 (2026-05-22) — Inspirasjon manuell modus
+
+Lar Michel kjøre sortering gjennom Claude Pro-abonnementet sitt istedenfor
+API-en. Manuell modus genererer prompten lokalt, du paster i claude.ai
+(eller ChatGPT/Gemini chat), paster JSON-svaret tilbake, og suggestion-
+cards rendrer identisk som auto-modus.
+
+### A/B-testet, begge modi virker
+
+Etter Phase 11-prompten ble strammet (MICHEL_CONTEXT + MOMENT ARCHETYPES
++ anti-regurgitation + recent-anchors exclusion), gir både auto-modus
+(Gemini 2.5-flash) og manuell modus (Claude Sonnet via claude.ai) nye,
+publiserbare ankere uten å regurgitere de gamle tre (AED demo / J2020
+Gallup / Content Brain 22:00).
+
+Konklusjon: Auto for daglig screening (gratis, 90 sek), Manuell som
+backup eller for high-stakes poster (Sonnet-kvalitet, 3-4 min).
+
+### Nye komponenter
+
+- `buildCombinedPrompt` i `inspirer-prompts.js`: fletter system+user
+  prompt med `---` USER INPUT-delimiter for paste i chat-UI som ikke
+  har separat system-input
+- Mode-toggle i `inspirer.js`: `🤖 Auto` / `✋ Manuell` lagres i
+  `newsletterInspirer.ui.mode`
+- Manuell-seksjon med to collapsible details:
+  1. Generert prompt (read-only textarea + `📋 Kopier prompt`-knapp
+     via `navigator.clipboard.writeText`)
+  2. Paste-JSON-svar (textarea + `Tolk svar`-knapp som kjører
+     `parseResponse`)
+- `parseResponse` gjenbrukes uendret — samme JSON-format som auto-modus
+
+### Kost-profil
+
+- Auto: Gemini Flash gratis-tier eller Claude haiku ~5 øre/kall
+- Manuell: 0 NOK. Bruker Pro-abonnementet direkte. Tilgang til Sonnet,
+  Opus, og hvilken som helst annen modell på claude.ai.
+
+### Tester og bundle
+
+4 nye unit-tester for `buildCombinedPrompt` (44 i inspirer, 136 totalt).
+Bundle: 424 KB (var 416 KB i v0.11).
+
 ## v0.11 (2026-05-22) — Inspirasjon-modus
 
 Ny "📥 Inspirasjon"-tab automatiserer nyhetsbrev → Pipeline-flyten.

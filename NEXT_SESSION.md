@@ -1,86 +1,70 @@
 # Neste sesjon — handover
 
-Sist oppdatert 2026-05-22 (etter Phase 11 — Inspirasjon-modulen).
+Sist oppdatert 2026-05-22 (etter Phase 12 — Inspirasjon manuell modus + A/B-bekreftelse).
 
 ## TL;DR
 
-📥 Inspirasjon-modulen er live på Pages. Lim inn en nyhetsbrev-URL,
-LLM scorer artikler mot Michels 4-pilar-rotasjon, du klikker
-"+ Legg til Pipeline" på de du vil bruke. Bundle 416 KB, 132 tester
-grønne, deploy via SSH (PAT er pensjonert).
+Inspirasjon-modulen er ferdig iterert og A/B-testet. **Begge modi gir
+publiserbare ankere etter prompten ble strammet.** Velg basert på behov:
 
-- ✅ Inspirasjon-tab med URL-input + paste-tekst fallback
-- ✅ Modell-dropdown (8 preset provider+model-kombinasjoner)
-- ✅ MICHEL_CONTEXT + MOMENT ARCHETYPES + anti-regurgitation
-- ✅ Recent-anchors exclusion (anchors fra siste Pipeline-posts unngås)
-- ✅ SSH-nøkkel for push (PAT utløper om en uke, ikke i bruk lenger)
+- **🤖 Auto (Gemini 2.5-flash)** — ~90 sek, gratis, daglig screening
+- **✋ Manuell (Claude Sonnet via claude.ai)** — ~3-4 min, gratis (Pro),
+  backup eller high-stakes
 
-## 🌅 Morgen-agenda — test plan A
+Bundle 424 KB. 136 tester grønne. Recent-anchors-eksklusjon holder
+systemet selvkorrigerende uke-til-uke.
 
-### 1. Test prompt-iterasjonen (10 min)
+## Anbefalt flyt for ukentlige nyhetsbrev
 
-Inspirasjon-modulen gikk gjennom flere iterasjoner i går kveld pga
-regurgitation. Plan A — fjerning av positive eksempler — er live på
-main. Test om det virker:
+1. Lim inn URL i Inspirasjon-tabben
+2. Klikk Hent forslag (Auto/Flash) → få 2-3 forslag på ~10 sek
+3. Hvis du synes alle treffer godt → klikk + Legg til Pipeline på de
+   du vil bruke (anchor-teksten lagres som idé + automatisk eksklusjon
+   neste uke)
+4. Hvis noen er svake → bytt til Manuell, bygg prompt, kjør i claude.ai
+   for sterkere kvalitet på de som teller mest
 
-1. Åpne https://michgeid.github.io/content-brain/ (StaticCrypt-passord)
-2. Inspirasjon-tab → behold default-modell (Gemini 2.5-flash)
-3. Paste samme URL som i går: `https://leadershipintech.com/newsletters/2261?sid=bdea9f87-f72c-4075-896f-499f5e0044ee`
-4. Klikk **Hent forslag**
+## Hvis Auto begynner å regurgitere igjen
 
-**Forventet:**
-- 3 forslag på tvers av Pilar 1, 3, 4 (diversitet)
-- Ankerne skal være ANDRE moment enn AED-demo / J2020 Sørmarka / Content Brain 22:00 — som var de tre overbrukte sist
-- Ingen tail-setninger som "This article shows…" eller "resonates with…"
+Det vi har observert: prompt-iterasjonen virker, men recent-anchors-
+listen kapper på 8 nyeste Pipeline-posts med URL-kilde. Etter du har
+brukt systemet en stund:
+- Hvis du sletter mange poster fra Pipeline, slipper du eksklusjons-
+  beskyttelsen og Gemini kan regenerere gamle scener
+- Hvis du publiserer mange poster med samme angle, kan recent-anchors
+  faktisk bli for restriktiv
 
-**Hvis ankerne FORTSATT er de samme tre:**
-- Plan A fungerte ikke — Gemini Flash er for bokstavelig
-- Bytt til Gemini 2.5-pro i dropdown for én test (du har ~25 kall/dag igjen)
-- Hvis 2.5-pro fortsatt regurgiterer, prøv Claude haiku-4-5 (~5 øre/kall)
-- Si fra hva som skjedde
+I begge tilfeller: bytt til Manuell modus med Sonnet 4.6 eller Opus 4.6
+for én runde, så kommer kvaliteten tilbake.
 
-### 2. Hvis Plan A virker — test recent-anchors exclusion (5 min)
+## Phase 13-kandidater (åpne)
 
-1. Klikk "+ Legg til Pipeline" på ett av forslagene (f.eks. Sinofsky/Pilar 4)
-2. Refresh Inspirasjon-tabben
-3. Paste samme URL igjen → klikk Hent forslag
-4. **Forventet:** Pilar 4-anker skal nå være ANNERLEDES enn det første du la til.
-   Recent-anchors-mekanismen passer på at samme angle ikke kommer to ganger.
-
-### 3. Hvis alt fungerer — kjør ett ekte nyhetsbrev
-
-Test med et faktisk Leadership in Tech-nyhetsbrev fra denne uka.
-Goal: 90-sek-flyten fra URL til Pipeline-idé.
-
-## Kjente kandidater å vurdere neste
-
-- **↻ Annet anker-knapp** per suggestion-card — per-kort regenerate hvis
-  ankeren ikke treffer, uten å re-fetche hele nyhetsbrevet. Sparer
-  rate-limit-kall hos Gemini.
-- **Bulk-import gamle LinkedIn-poster** (gjenstår fra Phase 8+)
+- **↻ Annet anker-knapp** per suggestion-card — per-kort regenerate med
+  "give me a different angle" hvis du ikke vil reload hele nyhetsbrevet
+- **Bulk-import gamle LinkedIn-poster** til Pipeline med pilar-tagging
+  (gjenstår fra Phase 8+ Analytics-roadmap)
+- **Calendar-tab integrasjon med Ghostwriter-poster** — "Plassér…"-knapp
+  ruter direkte til Ghostwriter for ukens pilar
 - **Backend for scheduled publishing** (bryter gratis-stack)
-- **Cutler-artikkelen** som ligger som idé i Pipeline siden tidligere
-  i mai — verdt en runde i Ghostwriter article-reaction.
-
-## SSH-migrasjon (siden i går)
-
-- Den gamle PAT-en "content-brain push" utløper om noen dager (ca 28. mai)
-- SSH-nøkkel er registrert på GitHub som "Mac — Content Brain"
-- `origin` peker nå på `git@github.com:MichGEid/content-brain.git`
-- Push fra terminal trenger ikke passord lenger
-- Den gamle PAT-en kan slettes manuelt fra
-  https://github.com/settings/tokens hvis du vil ha det ryddig
+- **Standalone HTML-rapport-eksport** fra Analytics
 
 ## Sanity-tester ved oppstart
 
 ```bash
 cd ~/Documents/Claude/Projects/Content\ Brain
-npm run test                          # 132 unit-tester
-node scripts/build.js --bundle-only   # produserer dist/index.html ~416 KB
+npm run test                          # 136 unit-tester
+node scripts/build.js --bundle-only   # dist/index.html ~424 KB
 ```
+
+## SSH-status
+
+Aktiv fra 2026-05-22. PAT "content-brain push" utløper ca 28. mai
+2026 — slett den manuelt fra https://github.com/settings/tokens hvis
+du vil rydde.
 
 ## Når vi snakkes igjen
 
-Si noe sånt som *"Klar for neste økt — har testet Inspirasjon"*. Da
-plukker jeg opp herfra og vet hva slags resultater du fikk på Plan A
-og recent-anchors.
+Si noe sånt som *"Klar for neste økt — Inspirasjon kjører i prod"*.
+Da plukker jeg opp herfra og vi tar en Phase 13-kandidat hvis du vil,
+eller går videre med faktisk innholdsproduksjon (Cutler-artikkelen
+ligger fortsatt som idé i Pipeline siden tidligere i mai).

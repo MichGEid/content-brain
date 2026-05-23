@@ -1,6 +1,6 @@
 # Status — Content Brain + Ghostwriter + Analytics
 
-Sist oppdatert 2026-05-22. Versjon: v0.11 med Inspirasjon-modul (LLM scorer nyhetsbrev mot 4-pilar-rotasjonen).
+Sist oppdatert 2026-05-22. Versjon: v0.12 med Inspirasjon manuell modus (bruk Claude Pro istedenfor API).
 
 ## Helhetlig status
 
@@ -40,8 +40,12 @@ Sist oppdatert 2026-05-22. Versjon: v0.11 med Inspirasjon-modul (LLM scorer nyhe
 │             modell-dropdown + MICHEL_CONTEXT                 │
 │             + MOMENT ARCHETYPES + anti-                      │
 │             regurgitation + recent-anchors                   │
-│  Tests      132 unit-tester (32 GW +     ✅ Alle passerer   │
-│             60 Analytics + 40 Inspirer)                      │
+│  Phase 12   Inspirasjon manuell modus    ✅ Live (2026-05-22)│
+│             Auto/Manuell-toggle + bygg-                      │
+│             prompt-lokalt + paste-JSON-                      │
+│             tilbake (bruker Pro, ikke API)                   │
+│  Tests      136 unit-tester (32 GW +     ✅ Alle passerer   │
+│             60 Analytics + 44 Inspirer)                      │
 └────────────────────────────────────────────────────────────┘
 ```
 
@@ -120,12 +124,13 @@ edit-tracker den genererte vs din endelige versjon:
 ## Test-coverage
 
 ```bash
-npm run test                # alle 132 tester
+npm run test                # alle 136 tester
 npm run test:edit-tracker   # 12 tester for n-gram diff + suggestions
 npm run test:conversation   # 20 tester for prompt-bygging og selectExamples
 npm run test:analytics      # 60 tester for parser, classifier, store, demo,
                             # top-perf, syncPublishedPostsToMetrics
-npm run test:inspirer       # 40 tester for prompt-bygger og JSON-parser
+npm run test:inspirer       # 44 tester for prompt-bygger og JSON-parser
+                            # + buildCombinedPrompt for manuell modus
 npm run test:prompts        # CLI for å se generert system+user prompt
 ```
 
@@ -199,7 +204,48 @@ content-brain/
 └── STATUS.md                   (denne)
 ```
 
-Bundle: ~414 KB (kryptert via StaticCrypt før deploy).
+Bundle: ~424 KB (kryptert via StaticCrypt før deploy).
+
+## Inspirasjon manuell modus (Phase 12 — 2026-05-22)
+
+Lar Michel kjøre sortering gjennom Claude Pro-abonnementet sitt istedenfor
+API. Sidesteg av rate limits og API-kostnad. Etter A/B-testing 2026-05-22
+ble det bekreftet at **både auto-modus (Gemini Flash) og manuell modus
+(Claude Sonnet via claude.ai) gir publiserbare ankere** etter Phase 11-
+prompten ble strammet. Manuell brukes som backup eller for high-stakes
+poster; auto for daglig screening.
+
+**UI-flyt i manuell modus:**
+1. Bytt til ✋ Manuell via mode-toggle (lagres i `newsletterInspirer.ui.mode`)
+2. Lim inn URL (eller paste-tekst)
+3. Klikk **📋 Bygg prompt** — prompt genereres lokalt via
+   `buildCombinedPrompt` (samme builder som auto-modus, bare flettet
+   system+user)
+4. Klikk **📋 Kopier prompt** — clipboard fylles via `navigator.clipboard.writeText`
+5. Åpne claude.ai (Pro) → ny chat → Cmd+V → Enter
+6. Claude svarer JSON-array
+7. Kopier hele JSON-svaret tilbake
+8. Paste i "Lim inn JSON-svar"-textarea
+9. Klikk **Tolk svar → suggestion-cards** — `parseResponse` kjører,
+   suggestion-cards rendrer identisk som auto-modus
+
+**Hvorfor det fungerer:**
+- `parseResponse`-en er provider-agnostisk og håndterer raw JSON, JSON i
+  markdown-fence, og JSON med prose før/etter — dvs hva alle chat-UI-er
+  typisk gir
+- `buildCombinedPrompt` fletter system+user med en `---` USER INPUT-
+  delimiter slik at chat-UI som ikke har separat system-input får hele
+  konteksten i én melding
+- Recent-anchors-eksklusjon, MICHEL_CONTEXT og MOMENT ARCHETYPES brukes
+  uendret — bare leveringsmekanismen er annerledes
+
+**Kost-profil:**
+- Auto-modus: Gemini Flash gratis-tier (10 RPM, 250/dag) eller Claude
+  haiku ~5 øre/kall (paid API)
+- Manuell modus: Null. Bruker Claude Pro $20/mnd-abonnement direkte.
+
+**Tester:** 4 nye tester for `buildCombinedPrompt` (44 i inspirer-modul,
+136 totalt).
 
 ## Inspirasjon-modulen (Phase 11 — 2026-05-22)
 
