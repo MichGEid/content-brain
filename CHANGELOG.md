@@ -1,5 +1,74 @@
 # Changelog
 
+## v0.11 (2026-05-22) — Inspirasjon-modus
+
+Ny "📥 Inspirasjon"-tab automatiserer nyhetsbrev → Pipeline-flyten.
+Lim inn en URL → LLM scorer artikler mot 4-pilar-rotasjonen → forslag
+i suggestion-cards med ett-klikks Legg til Pipeline. Skal redusere
+ukentlige gjennomganger fra 15-20 min chat til ~90 sek per nyhetsbrev.
+
+### Arkitektur
+
+- `newsletters/inspirer-prompts.js` (~280 linjer): system-prompt-bygger,
+  user-prompt-bygger, robust JSON-parser, MICHEL_CONTEXT-konstant og
+  MOMENT ARCHETYPES-meny
+- `newsletters/inspirer.js` (~430 linjer): UI-modul med URL-input,
+  modell-dropdown, suggestion-card-rendering, addPost-integrasjon,
+  abort-controller og loading-state
+- `scripts/test-inspirer.js` (~360 linjer): 38 unit-tester for prompt-
+  innhold og JSON-parser-robusthet
+
+### MICHEL_CONTEXT-blokken
+
+Konstant tekst med Michels livsbilde — Laerdal-rolle, konkurrenter
+(ZOLL/Stryker/Philips/Medtronic), J2020 hockey-team, Content Brain-
+bygging, MDR/FDA-virkelighet, styreverv. Gir LLM konkrete anker-
+kilder istedenfor at den paraphraser artikkelen.
+
+### MOMENT ARCHETYPES-menyen
+
+5-7 moment-typer per pilar med spesifikke åpningssituasjoner. Gir LLM
+variasjon å trekke fra: Pilar 1 "a budget meeting that exposed a
+structural problem", Pilar 4 "an ISO 13485 audit detail", Pilar 3
+"a refactor that broke a test he didn't know existed", etc.
+
+### Modell-dropdown
+
+Erstatter den statiske provider-chip-en med en `<select>` med 8 preset
+provider+model-kombinasjoner. Default-valget "Bruk Ghostwriter-default"
+respekterer Ghostwriter UI sin innstilling. Override lagres som
+`providerOverride` + `modelOverride` i `newsletterInspirer.ui`. URL-
+input disables når non-Gemini er valgt (kun Gemini har `url_context`).
+
+### Anti-regurgitation (plan A)
+
+Etter at Gemini 2.5-flash gjentok mine GOOD ANCHOR-eksempler ordrett,
+fjernet vi alle positive eksempler fra prompten. Beholder:
+- MOMENT ARCHETYPES-menyen (lar LLM-en velge fra meny)
+- Eksplisitt "NO positive anchor template is provided"-deklarasjon
+- Blokkliste over de tre overbrukte ankerne (AED demo, J2020 Gallup,
+  Content Brain 22:00) med per-pilar fresh-up-alternativer
+- Forbud mot tail-setninger som tilbake-henviser til artikkelen
+  ("This article shows…", "This echoes…", "This translates to…")
+- BAD ANCHOR-eksempler som anti-mønstre
+
+### Recent-anchors exclusion
+
+Når en Inspirasjon-suggestion legges til Pipeline, hentes anker-teksten
+til future-prompt-bygging som "RECENTLY USED — do not reproduce these
+scenes". Gjør at angles ikke kommer opp uke etter uke selv om samme
+moment-archetype velges av LLM-en.
+
+### Bug-fiks underveis
+
+- Voice Profile-type-mismatch: `description`/`banlist`/`rules` kunne
+  være enten array (DEFAULT_VOICE) eller string (etter brukerredigering).
+  Defensiv `toArray`-helper håndterer begge formene.
+
+### Bundle og tester
+
+Bundle: 416 KB (var 375 KB i v0.10). 40 nye unit-tester (132 totalt).
+
 ## v0.10 (2026-05-21) — Analytics auto-sync fra Pipeline
 
 Du slipper å laste ned LinkedIn-CSV for hvert eneste innlegg. Når en

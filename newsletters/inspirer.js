@@ -150,6 +150,23 @@
     } catch (e) { return []; }
   }
 
+  /**
+   * Anker-tekster fra siste Pipeline-poster med URL-kilde (typisk
+   * Inspirasjon-tilføyelser). Brukes som eksklusjons-liste i prompten
+   * så samme scene ikke kommer to ganger på rad.
+   */
+  function getRecentAnchors(n) {
+    try {
+      const cb = window.ContentBrain?.getState?.();
+      if (!cb?.posts) return [];
+      return cb.posts
+        .filter(p => p.body && p.source && /^https?:\/\//.test(p.source))
+        .sort((a, b) => (b.capturedAt || "").localeCompare(a.capturedAt || ""))
+        .slice(0, n || 8)
+        .map(p => p.body);
+    } catch (e) { return []; }
+  }
+
   // ----------------------------- render -----------------------------
 
   function init() {
@@ -387,8 +404,9 @@
     const voiceProfile = getVoiceProfile();
     const pillarInfo = getPillarInfo();
     const recentPublished = getRecentPublished(8);
+    const recentAnchors = getRecentAnchors(8);
 
-    const system = prompts.buildSystemPrompt({ voiceProfile, pillarInfo, recentPublished });
+    const system = prompts.buildSystemPrompt({ voiceProfile, pillarInfo, recentPublished, recentAnchors });
     const userPrompt = prompts.buildUserPrompt({
       url: willUseUrl ? url : "",
       text: willUseText ? text : "",

@@ -188,17 +188,18 @@ test("inkluderer diversitetsregel for å unngå 3-av-samme-pilar", () => {
   assert.ok(s.includes("Pillar 1") && s.includes("only keep the top 1"));
 });
 
-test("inkluderer GOOD og BAD anchor-eksempler", () => {
+test("inkluderer BAD anchor-eksempler (positive eksempler er bevisst fjernet)", () => {
   const s = prompts.buildSystemPrompt({
     voiceProfile: fixtureVoiceProfile(),
     pillarInfo: fixturePillarInfo(),
   });
-  assert.ok(s.includes("GOOD ANCHOR"));
   assert.ok(s.includes("BAD ANCHOR"));
-  // Sørmarka skal være i MICHEL_CONTEXT og/eller MOMENT ARCHETYPES
-  assert.ok(s.includes("Sørmarka"));
   // BAD-anchor-lista skal eksplisitt nevne typiske summary-åpninger
   assert.ok(s.includes("Gallup research") || s.includes("As a leader"));
+  // Sørmarka skal være i MICHEL_CONTEXT og/eller MOMENT ARCHETYPES
+  assert.ok(s.includes("Sørmarka"));
+  // Plan A: positive anchor-eksempler er nå fjernet — Gemini regurgiterte dem
+  assert.ok(s.includes("NO positive anchor template is provided"));
 });
 
 test("MICHEL_CONTEXT eksporteres som konstant for gjenbruk", () => {
@@ -226,13 +227,71 @@ test("inkluderer MOMENT ARCHETYPES med varierte moment-typer per pilar", () => {
   assert.ok(p4Block.includes("ZOLL") || p4Block.includes("Stryker"));
 });
 
-test("inkluderer eksplisitt forbud mot verbatim-kopiering av GOOD-eksempler", () => {
+test("inkluderer RECENTLY USED ANCHORS når recentAnchors er gitt", () => {
+  const s = prompts.buildSystemPrompt({
+    voiceProfile: fixtureVoiceProfile(),
+    pillarInfo: fixturePillarInfo(),
+    recentAnchors: [
+      "The first time I sat down with a competitor's AED — not as a demo, as an actual user — I noticed three things they had fixed.",
+      "My J2020 girls at Sørmarka Arena need exactly the three things Gallup measures.",
+    ],
+  });
+  assert.ok(s.includes("RECENTLY USED ANCHORS"));
+  assert.ok(s.includes("competitor's AED"));
+  assert.ok(s.includes("Sørmarka"));
+  assert.ok(s.toLowerCase().includes("do not reproduce"));
+});
+
+test("utelater RECENTLY USED-blokken når recentAnchors mangler eller er tom", () => {
+  const s1 = prompts.buildSystemPrompt({
+    voiceProfile: fixtureVoiceProfile(),
+    pillarInfo: fixturePillarInfo(),
+  });
+  assert.ok(!s1.includes("RECENTLY USED ANCHORS"));
+  const s2 = prompts.buildSystemPrompt({
+    voiceProfile: fixtureVoiceProfile(),
+    pillarInfo: fixturePillarInfo(),
+    recentAnchors: [],
+  });
+  assert.ok(!s2.includes("RECENTLY USED ANCHORS"));
+});
+
+test("filtrerer bort tomme og for korte ankere fra eksklusjons-listen", () => {
+  const s = prompts.buildSystemPrompt({
+    voiceProfile: fixtureVoiceProfile(),
+    pillarInfo: fixturePillarInfo(),
+    recentAnchors: [
+      "",                                                   // tom
+      "kort",                                               // for kort (< 20 tegn)
+      "Dette er en lang nok anker-tekst til å bli inkludert i eksklusjons-listen.",
+    ],
+  });
+  assert.ok(s.includes("RECENTLY USED ANCHORS"));
+  assert.ok(s.includes("lang nok anker-tekst"));
+  assert.ok(!s.match(/^\s+1\.\s+kort/m)); // "kort" skal ikke være enumerert
+});
+
+test("kapper ankere over 240 tegn med ellipse", () => {
+  const longAnchor = "A".repeat(300);
+  const s = prompts.buildSystemPrompt({
+    voiceProfile: fixtureVoiceProfile(),
+    pillarInfo: fixturePillarInfo(),
+    recentAnchors: [longAnchor],
+  });
+  assert.ok(s.includes("…"));
+  // Skal ikke inneholde full 300-A-streng
+  assert.ok(!s.includes("A".repeat(280)));
+});
+
+test("Plan A: positive eksempler er fjernet, blokkliste mot overbrukte anker erstatter dem", () => {
   const s = prompts.buildSystemPrompt({
     voiceProfile: fixtureVoiceProfile(),
     pillarInfo: fixturePillarInfo(),
   });
-  assert.ok(s.includes("DO NOT copy the GOOD ANCHOR examples"));
-  assert.ok(s.toLowerCase().includes("regurgitation") || s.toLowerCase().includes("verbatim"));
+  // Den nye strukturen erklærer eksplisitt at ingen positive templates gis
+  assert.ok(s.includes("NO positive anchor template is provided"));
+  // Tre overbrukte ankere skal være eksplisitt listet som AVOID
+  assert.ok(s.includes("over-used moments"));
 });
 
 test("inkluderer forbud mot tilbakehenvisning til artikkelen i hale-setning", () => {
@@ -246,17 +305,19 @@ test("inkluderer forbud mot tilbakehenvisning til artikkelen i hale-setning", ()
   assert.ok(s.includes("This translates"));
 });
 
-test("GOOD-eksempler er nå hypotetiske mønstre, ikke gjenbrukbare templates", () => {
+test("blokkliste mot overbrukte ankere er eksplisitt", () => {
   const s = prompts.buildSystemPrompt({
     voiceProfile: fixtureVoiceProfile(),
     pillarInfo: fixturePillarInfo(),
   });
-  // De gamle template-eksemplene (AED-demo, J2020 Gallup, 22:00 Content Brain)
-  // skal nå være erklært som regurgitation-feller, ikke gitt som templates.
-  // Sjekk at de nye GOOD-eksemplene er andre moment (ZOLL patent, 1:1 Tuesday, regex bug)
-  assert.ok(s.includes("ZOLL patent") || s.includes("ZOLL filing"));
-  assert.ok(s.includes("1:1") && s.includes("Tuesday"));
-  assert.ok(s.includes("regex"));
+  // De tre overbrukte ankerne skal være listet som "AVOID them"
+  assert.ok(s.includes("AVOID") || s.includes("avoid"));
+  assert.ok(s.includes("competitor's AED"));
+  assert.ok(s.includes("J2020"));
+  assert.ok(s.includes("Content Brain"));
+  // Konkrete fresh-up-alternativer skal være med per pilar
+  assert.ok(s.includes("ISO 13485") || s.includes("CE-mark") || s.includes("tender"));
+  assert.ok(s.includes("budget meeting") || s.includes("post-mortem") || s.includes("onboarding conversation"));
 });
 
 console.log("\n— buildUserPrompt —");

@@ -1,6 +1,6 @@
 # Status — Content Brain + Ghostwriter + Analytics
 
-Sist oppdatert 2026-05-21. Versjon: v0.10 med Analytics auto-sync fra Pipeline.
+Sist oppdatert 2026-05-22. Versjon: v0.11 med Inspirasjon-modul (LLM scorer nyhetsbrev mot 4-pilar-rotasjonen).
 
 ## Helhetlig status
 
@@ -35,8 +35,13 @@ Sist oppdatert 2026-05-21. Versjon: v0.10 med Analytics auto-sync fra Pipeline.
 │             sortIndex (matcher drag-and-drop-flyten)         │
 │  Phase 10   Analytics auto-sync fra      ✅ Live (2026-05-21)│
 │             Pipeline + 📌-badge + live hook                  │
-│  Tests      92 unit-tester (32 GW +      ✅ Alle passerer    │
-│             60 Analytics)                                    │
+│  Phase 11   Inspirasjon: LLM scorer       ✅ Live (2026-05-22)│
+│             nyhetsbrev mot 4-pilar +                         │
+│             modell-dropdown + MICHEL_CONTEXT                 │
+│             + MOMENT ARCHETYPES + anti-                      │
+│             regurgitation + recent-anchors                   │
+│  Tests      132 unit-tester (32 GW +     ✅ Alle passerer   │
+│             60 Analytics + 40 Inspirer)                      │
 └────────────────────────────────────────────────────────────┘
 ```
 
@@ -115,11 +120,12 @@ edit-tracker den genererte vs din endelige versjon:
 ## Test-coverage
 
 ```bash
-npm run test                # alle 92 tester
+npm run test                # alle 132 tester
 npm run test:edit-tracker   # 12 tester for n-gram diff + suggestions
 npm run test:conversation   # 20 tester for prompt-bygging og selectExamples
 npm run test:analytics      # 60 tester for parser, classifier, store, demo,
                             # top-perf, syncPublishedPostsToMetrics
+npm run test:inspirer       # 40 tester for prompt-bygger og JSON-parser
 npm run test:prompts        # CLI for å se generert system+user prompt
 ```
 
@@ -193,7 +199,80 @@ content-brain/
 └── STATUS.md                   (denne)
 ```
 
-Bundle: ~375 KB (kryptert via StaticCrypt før deploy).
+Bundle: ~414 KB (kryptert via StaticCrypt før deploy).
+
+## Inspirasjon-modulen (Phase 11 — 2026-05-22)
+
+Automatiser nyhetsbrev → Pipeline-flyten. Brukeren limer inn en URL i
+"📥 Inspirasjon"-tabben, en LLM (default Gemini 2.5-flash) scorer
+artiklene mot Michels 4-pilar-rotasjon, og foreslår 2-3 anker-tekster
+i hans stemme. Ett klikk legger dem til Pipeline som idé. Skal redusere
+ukentlige nyhetsbrev-gjennomganger fra 15-20 min Cowork-chat til ~90 sek.
+
+**Filer:**
+- `newsletters/inspirer-prompts.js` (~280 linjer) — buildSystemPrompt,
+  buildUserPrompt, parseResponse, MICHEL_CONTEXT, MOMENT ARCHETYPES
+- `newsletters/inspirer.js` (~430 linjer) — UI-modul: URL/text-input,
+  modell-dropdown, suggestion-cards, addPost-integrasjon, persistens
+- `scripts/test-inspirer.js` (~360 linjer, 38 tester)
+
+**Arkitektur:**
+- Reuser `Ghostwriter.api.generate` for provider-dispatch (Gemini/Claude/Ollama)
+- Reuser `voiceProfile.getProfile()` for stilbilde
+- Reuser `Analytics.hasData()`/`getPillarPerformance()` indirekte via
+  `ContentBrain.getState().posts`-pekere
+- Bruker `Ghostwriter.prompts.PILLAR_INFO` for pilar-definisjoner
+- Egen `newsletterInspirer.ui`-key i localStorage: URL, paste-tekst,
+  vis-textarea-flagg, suggestion-cache, sist-fetched-timestamp,
+  provider-override, model-override
+
+**Provider-flyt:**
+- Gemini har `url_context` → kan hente URL-en selv. Default-modus.
+- Claude og Ollama trenger paste-tekst. UI viser fallback når provider
+  bytter til en av disse.
+
+**MICHEL_CONTEXT-blokken:**
+Konstant i `inspirer-prompts.js`. Gir LLM konkret livsbilde å trekke
+ankere fra istedenfor å paraphrase artikkelen — Laerdal-rollen,
+konkurrenter (ZOLL/Stryker/Philips/Medtronic), J2020 hockey ved
+Sørmarka, Content Brain-bygging, MDR/FDA-virkelighet, styreverv.
+
+**MOMENT ARCHETYPES-menyen:**
+5-7 moment-typer per pilar. Gir LLM variasjon å velge fra istedenfor
+å gravitere mot samme 3 templates hver gang. Eksempler: Pilar 1
+"a 1:1 where a team member surfaced a tension", Pilar 4 "an MDR or
+FDA clause that surprised him".
+
+**Anti-regurgitation (plan A, 2026-05-22):**
+Etter at Gemini 2.5-flash gjenta de samme tre ankerne ordrett, fjernet
+vi alle positive GOOD ANCHOR-eksempler fra prompten. Erstattet med:
+(a) eksplisitt "NO positive anchor template is provided" deklarasjon,
+(b) blokkliste over overbrukte ankere (AED demo, J2020 Gallup, Content
+Brain 22:00) med per-pilar fresh-up-alternativer, (c) forbud mot tail-
+setninger som tilbake-henviser til artikkelen.
+
+**Recent-anchors exclusion:**
+Når en Inspirasjon-suggestion legges til Pipeline, kan dens anker-tekst
+inkluderes i fremtidige prompt som "RECENTLY USED — do not reproduce
+these scenes". Gjør at samme angle ikke kommer opp uke etter uke selv
+om samme moment-archetype velges av LLM-en.
+
+**Modell-dropdown:**
+8 preset provider+model-kombinasjoner (Gemini 2.0/2.5 flash/pro,
+Claude sonnet/haiku/opus 4-6, Ollama qwen/llama). Default-valget
+"Bruk Ghostwriter-default" respekterer det som er valgt i Ghostwriter-
+fanen. Override lagres som `providerOverride` + `modelOverride` i
+`newsletterInspirer.ui`. URL-input disables når non-Gemini er valgt
+(siden bare Gemini har `url_context`).
+
+**Kjente begrensninger etter Phase 11:**
+- 2.5-flash er tilbøyelig til å regurgitere positive eksempler fra
+  prompten. Plan A (fjerning av positive eksempler) avhenger av at
+  Gemini respekterer eksplisitte forbud. Hvis ikke, må vi bytte til
+  2.5-pro (25/dag-limit) eller Claude haiku (~0.005 USD/kall).
+- Recent-anchors-mekanismen krever at brukeren bruker "+ Legg til
+  Pipeline" på det som passer — hvis han bare hopper over uten å
+  legge til, samles ikke noen exclusion-historikk.
 
 ## Analytics auto-sync fra Pipeline (Phase 10 — 2026-05-21)
 

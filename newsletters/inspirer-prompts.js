@@ -52,9 +52,10 @@
    * @param {Object} opts.voiceProfile - VoiceProfile-objektet (banlist, rules, description, examplesByPillar)
    * @param {Object} opts.pillarInfo - PILLAR_INFO fra ghostwriter.prompts
    * @param {Array<{pillar:number,publishedAt:string}>} [opts.recentPublished] - 8 siste publiserte posts for rotasjons-hint
+   * @param {Array<string>} [opts.recentAnchors] - Anker-tekster fra siste 8 Inspirasjon-tilføyelser; gir LLM eksklusjons-liste så samme scene ikke kommer to ganger
    * @returns {string}
    */
-  function buildSystemPrompt({ voiceProfile, pillarInfo, recentPublished }) {
+  function buildSystemPrompt({ voiceProfile, pillarInfo, recentPublished, recentAnchors }) {
     // Defensive: description/banlist/rules kan være enten array (DEFAULT_VOICE)
     // eller string (etter at brukeren har redigert i textarea), avhengig av
     // hvor Voice Profile-objektet kommer fra.
@@ -79,6 +80,20 @@
         `\n\nUse this to gently favor pillars that are underrepresented in the recent rotation when scoring fit. Don't force balance — quality of fit comes first.`
       : "";
 
+    // Anker-eksklusjon: tekster fra Pipeline-poster som ble lagt til via
+    // Inspirasjon nylig. Forhindrer at samme scene kommer to ganger på rad.
+    const cleanedAnchors = Array.isArray(recentAnchors)
+      ? recentAnchors
+          .map(a => String(a || "").trim())
+          .filter(a => a.length > 20)
+          .slice(0, 8)
+      : [];
+    const recentAnchorsBlock = cleanedAnchors.length
+      ? `\nRECENTLY USED ANCHORS (do not reproduce these scenes — Michel has already used them in recent posts or Pipeline items):\n` +
+        cleanedAnchors.map((a, i) => `  ${i + 1}. ${a.length > 240 ? a.slice(0, 237) + "…" : a}`).join("\n") +
+        `\n\nIf an article in this newsletter naturally maps to one of the scenes above, find a DIFFERENT moment from MICHEL'S CONTEXT or the MOMENT ARCHETYPES menu. Repeating a scene immediately makes the post feel canned.`
+      : "";
+
     return `You are an editorial scout for Michel Eid. He publishes one LinkedIn post per week following a four-pillar rotation. Your job is to read a newsletter and pick 2-3 articles that would make the strongest posts for HIM specifically — not for a generic tech leader.
 
 ${MICHEL_CONTEXT}
@@ -96,6 +111,7 @@ ${banlist.length ? banlist.map(p => `  - "${p}"`).join("\n") : "  (none)"}
 WRITING RULES:
 ${rules.length ? rules.map((r, i) => `  ${i + 1}. ${r}`).join("\n") : "  (none)"}
 ${recentBlock}
+${recentAnchorsBlock}
 
 YOUR TASK:
 Read the newsletter and pick 2-3 articles that would make the strongest LinkedIn posts for Michel. Skip articles that are sponsored, off-topic, or generic. It's OK to return fewer than 3 if quality is low — but always return at least 1 if anything works.
@@ -145,20 +161,21 @@ MOMENT ARCHETYPES — pick from this menu (don't reuse the exact same ones every
 
 CRITICAL ANCHOR RULES — these are the most common failure modes, do NOT make them:
 
-1. DO NOT copy the GOOD ANCHOR examples below verbatim or near-verbatim. They show SHAPE, not content. If the article is about a topic close to the example, find a DIFFERENT moment from the archetypes above. Re-using the example AED scene, the J2020 Gallup scene, or the Content Brain 22:00 scene every time is a regurgitation tell.
+1. DO NOT end the anchor with a sentence that ties back to the article. No "This article shows that…", no "This echoes the point about…", no "This translates directly to…", no "The article's point about… resonates with…". The reader has the URL. End on Michel's own observation, full stop.
 
-2. DO NOT end the anchor with a sentence that ties back to the article. No "This article shows that…", no "This echoes the point about…", no "This translates directly to…". The reader has the URL. End on Michel's own observation.
+2. DO NOT write summaries of the article. "Gallup research consistently points to…" is the article talking, not Michel. Find what Michel saw.
 
-3. DO NOT write summaries of the article. "Gallup research consistently points to…" is the article talking, not Michel. Find what Michel saw.
+3. DO NOT rely on the same three over-used moments. The following anchors have been suggested in prior runs and now feel canned. AVOID them unless absolutely no other archetype fits the article:
+   • "The first time I sat down with a competitor's AED — not as a demo, as an actual user…"
+   • "My J2020 girls at Sørmarka Arena need exactly the three things Gallup measures…"
+   • "Ten phases of Content Brain in three weeks with Claude and Gemini… after 22:00…"
 
-GOOD ANCHOR (Pillar 4, hypothetical — pattern, not template):
-"Two weeks ago I read a ZOLL patent filing that quietly described a feature we'd been debating internally for six months. They had not just landed there first — they had reasoned about the trade-off in a way our last review missed."
+   When you reach for one of these instinctively, STOP and pick a different moment from the MOMENT ARCHETYPES menu. Same pillar, different scene. Examples that would freshen things up:
+   • Pillar 4 (competition): an ISO 13485 audit detail, a CE-mark conversation, a partner meeting in the US, an OEM negotiation, a hospital tender response — NOT another AED demo.
+   • Pillar 1 (leadership): a budget meeting, an onboarding conversation, a post-mortem, a strategy off-site, a board prep session — NOT another Gallup-Sørmarka bridge.
+   • Pillar 3 (building): a refactor that broke a test, a library decision, a deploy failure, a code review of his own old code, pair-coding with an LLM — NOT another 22:00 Content Brain session.
 
-GOOD ANCHOR (Pillar 1, hypothetical — pattern, not template):
-"In a 1:1 last Tuesday, a senior engineer asked why we kept rewarding the people who optimized inside the team but never the ones who reduced friction across teams. I didn't have a good answer. I think the answer is structural."
-
-GOOD ANCHOR (Pillar 3, hypothetical — pattern, not template):
-"I spent twenty minutes last night chasing a bug that turned out to be a single character in a regex. The frustrating part wasn't the typo. It was that I had written the regex three weeks earlier and had absolutely no memory of why."
+4. NO positive anchor template is provided in this prompt — that is deliberate. You must generate the anchor from MICHEL'S CONTEXT and the MOMENT ARCHETYPES menu, not by copying a model anchor. Start every anchor with a SPECIFIC moment that names a concrete place, person, or action.
 
 BAD ANCHOR (avoid these shapes — they are summaries, not anchors):
   • "This article argues that studying competitors is important."
