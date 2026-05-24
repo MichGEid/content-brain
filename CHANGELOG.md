@@ -1,5 +1,68 @@
 # Changelog
 
+## v0.14 (2026-05-22) — Inspirasjon hallusinasjons-fiks
+
+Etter Michel rapporterte at LLM-en oppfant spesifikke scener fra livet
+hans ("Last year I sat through a hospital tender response", "one of the
+J2020 girls asked me…") som ikke hadde skjedd, byttet vi ut det enkle
+`anchor`-feltet med tre separate felt for å forhindre fabrikasjon ved
+design.
+
+### Ny output-struktur
+
+LLM returnerer nå per suggestion:
+
+- `framing` — 1-2 setninger som rammer IDEEN (ikke en scene). Konseptuelt,
+  ikke narrativt. Eksempel: "Competitor study isn't a one-time exercise.
+  The ones who notice their own gaps before you do are the ones already
+  closing them."
+- `momentSuggestions` — array av 2-3 KORTE prompts (8-15 ord) som beskriver
+  TYPER moment Michel kan fylle inn fra eget liv. Eksempel: "A recent
+  competitor product review at Laerdal", "An ISO 13485 audit finding".
+  Eksplisitt filler-suggestions, ikke claimed memories.
+- `landing` — 1 setning som kunne lande posten. Maks 20 ord.
+
+### Prompt-iterasjon
+
+ABSOLUTE BAN ON FABRICATED SCENES er nå hovedregelen, øverst i kritiske
+regler. Eksplisitt forbud mot "Last year I…", "One of the X asked me…",
+"When my daughter said…". Tidligere demonstrasjons-ankere (AED, J2020
+Gallup, Content Brain 22:00) fjernet helt — de oppfordret til samme
+fabrikasjons-shape.
+
+### UI
+
+- `inspirer-card-framing` vises prominent (font-weight 500, 0.95rem)
+- `inspirer-card-moments` er en collapsible med "💡 Mulige anker-moment"-
+  summary og liste av suggestion-prompts (border-left for hver)
+- `inspirer-card-landing` vises italic med border-left
+- Reasoning-linjen er som før under
+
+### Pipeline-body sammensetting
+
+Når "+ Legg til Pipeline" klikkes, lagres body som:
+```
+[framing]
+
+Mulige anker-moment (velg ett, gjør om til ekte scene):
+  • [suggestion 1]
+  • [suggestion 2]
+  • [suggestion 3]
+
+Landing: [landing line]
+```
+Michel kan editere dette til en ekte post i Ghostwriter.
+
+### Bakoverkompatibilitet
+
+`validateAndNormalize` aksepterer legacy `anchor`-feltet og mapper det
+til `framing` (med tomme momentSuggestions/landing) så gamle responses
+i localStorage fortsatt rendrer.
+
+### Tester og bundle
+
+5 nye tester (61 i inspirer, 153 totalt). Bundle 438 KB (var 433 KB).
+
 ## v0.13 (2026-05-22) — Inspirasjon: michelPosts + rejected + mangler-URL
 
 Tre forbedringer etter A/B-sammenligning av auto/manuell/Copilot:

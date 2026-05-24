@@ -2062,6 +2062,50 @@ textarea { resize: vertical; font-family: inherit; }
   font-size: 0.92rem;
   line-height: 1.5;
 }
+.inspirer-card-framing {
+  margin: 0.3rem 0 0.5rem 0;
+  color: var(--text);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  font-weight: 500;
+}
+.inspirer-card-moments {
+  margin: 0.6rem 0;
+  background: var(--bg-soft);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--border);
+}
+.inspirer-card-moments summary {
+  cursor: pointer;
+  font-size: 0.83rem;
+  color: var(--text-muted);
+  user-select: none;
+  font-weight: 500;
+}
+.inspirer-card-moments[open] summary { margin-bottom: 0.4rem; }
+.inspirer-card-moment-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.inspirer-card-moment-list li {
+  font-size: 0.85rem;
+  color: var(--text);
+  padding-left: 0.5rem;
+  border-left: 2px solid var(--border);
+}
+.inspirer-card-landing {
+  margin: 0.5rem 0;
+  color: var(--text);
+  font-size: 0.92rem;
+  font-style: italic;
+  padding-left: 0.6rem;
+  border-left: 3px solid var(--border-strong, var(--border));
+}
 .inspirer-card-reason {
   margin: 0.4rem 0;
   font-style: italic;

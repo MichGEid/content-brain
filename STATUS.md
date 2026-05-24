@@ -1,6 +1,6 @@
 # Status — Content Brain + Ghostwriter + Analytics
 
-Sist oppdatert 2026-05-22. Versjon: v0.13 med Inspirasjon: Michels poster i prompten + rejected articles + mangler-URL-varsel.
+Sist oppdatert 2026-05-22. Versjon: v0.14 med Inspirasjon hallusinasjons-fiks (framing + momentSuggestions + landing istedenfor fabrikert anchor).
 
 ## Helhetlig status
 
@@ -47,8 +47,12 @@ Sist oppdatert 2026-05-22. Versjon: v0.13 med Inspirasjon: Michels poster i prom
 │  Phase 13   Inspirasjon: michelPosts i    ✅ Live (2026-05-22)│
 │             prompt + rejected articles +                     │
 │             mangler-URL-varsel på published                  │
-│  Tests      148 unit-tester (32 GW +     ✅ Alle passerer   │
-│             60 Analytics + 56 Inspirer)                      │
+│  Phase 14   Inspirasjon hallusinasjons-   ✅ Live (2026-05-22)│
+│             fiks: framing + momentSuggestions                │
+│             + landing istedenfor fabrikert                   │
+│             anchor (LLM oppfant scener)                      │
+│  Tests      153 unit-tester (32 GW +     ✅ Alle passerer   │
+│             60 Analytics + 61 Inspirer)                      │
 └────────────────────────────────────────────────────────────┘
 ```
 
@@ -127,13 +131,14 @@ edit-tracker den genererte vs din endelige versjon:
 ## Test-coverage
 
 ```bash
-npm run test                # alle 148 tester
+npm run test                # alle 153 tester
 npm run test:edit-tracker   # 12 tester for n-gram diff + suggestions
 npm run test:conversation   # 20 tester for prompt-bygging og selectExamples
 npm run test:analytics      # 60 tester for parser, classifier, store, demo,
                             # top-perf, syncPublishedPostsToMetrics
-npm run test:inspirer       # 56 tester for prompt-bygger, JSON-parser,
-                            # buildCombinedPrompt, michelPosts, rejected
+npm run test:inspirer       # 61 tester for prompt-bygger, JSON-parser,
+                            # buildCombinedPrompt, michelPosts, rejected,
+                            # framing+momentSuggestions+landing (v0.14)
 npm run test:prompts        # CLI for å se generert system+user prompt
 ```
 
@@ -207,7 +212,45 @@ content-brain/
 └── STATUS.md                   (denne)
 ```
 
-Bundle: ~431 KB (kryptert via StaticCrypt før deploy).
+Bundle: ~438 KB (kryptert via StaticCrypt før deploy).
+
+## Phase 14 — Inspirasjon hallusinasjons-fiks (2026-05-22)
+
+LLM-en hallusinerte spesifikke scener fra Michels liv han ikke hadde
+levd ("Last year I sat through a hospital tender response", "one of
+the J2020 girls asked me…"). Roten: vi ba om en ferdig "anchor" som
+implisitt presset LLM til å fabrikere konkrete moment den ikke kunne
+vite om.
+
+**Strukturell fiks:** Bytte ut `anchor`-feltet med tre separate felt:
+
+- `framing` — 1-2 setninger som rammer IDEEN (ikke en scene). I Michels
+  stemme, men konseptuelt, ikke narrativt.
+- `momentSuggestions` — array av 2-3 KORTE prompts (8-15 ord) som
+  beskriver TYPER moment Michel kan fylle inn fra eget liv. Eksplisitt
+  filler-suggestions, ikke claimed memories.
+- `landing` — 1 setning som kunne lande posten. Punchline, observasjon,
+  spørsmål. Maks 20 ord.
+
+**Prompt-iterasjon:** ABSOLUTE BAN ON FABRICATED SCENES er nå
+hovedregelen, øverst i kritiske regler. Eksplisitt forbud mot "Last year I…",
+"One of the X asked me…", "When my daughter said…". Tidligere demonstrasjons-
+ankere (AED, J2020, Content Brain 22:00) fjernet helt fra anti-mønster-
+listen siden de oppfordret til samme fabrikasjon-shape.
+
+**Pipeline-body sammensetting:** når Michel klikker "+ Legg til Pipeline",
+genereres body som `framing\n\nMulige anker-moment:\n  • s1\n  • s2\n\nLanding: ...`
+som han kan editere til en ekte post i Ghostwriter.
+
+**Bakoverkompatibilitet:** `validateAndNormalize` aksepterer legacy
+`anchor`-feltet og mapper det til `framing` (med tomme momentSuggestions/
+landing) så gamle responses i localStorage fortsatt rendrer.
+
+**UI-endring:** `inspirer-card-framing` (prominent), `inspirer-card-moments`
+(collapsible details med 💡-emoji), `inspirer-card-landing` (italic, med
+border-left). Reasoning-linjen vises som før under.
+
+**Tester:** 5 nye tester for v0.14-strukturen (61 i inspirer, 153 totalt).
 
 ## Phase 13 — Michels poster i prompten + rejected + mangler-URL (2026-05-22)
 

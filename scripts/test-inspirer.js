@@ -189,18 +189,19 @@ test("inkluderer diversitetsregel for å unngå 3-av-samme-pilar", () => {
   assert.ok(s.includes("Pillar 1") && s.includes("only keep the top 1"));
 });
 
-test("inkluderer BAD anchor-eksempler (positive eksempler er bevisst fjernet)", () => {
+test("inkluderer ABSOLUTE BAN ON FABRICATED SCENES (v0.14 hallusinasjons-fiks)", () => {
   const s = prompts.buildSystemPrompt({
     voiceProfile: fixtureVoiceProfile(),
     pillarInfo: fixturePillarInfo(),
   });
-  assert.ok(s.includes("BAD ANCHOR"));
-  // BAD-anchor-lista skal eksplisitt nevne typiske summary-åpninger
-  assert.ok(s.includes("Gallup research") || s.includes("As a leader"));
+  // Hovedregelen mot hallusinasjon skal være eksplisitt
+  assert.ok(s.includes("ABSOLUTE BAN ON FABRICATED"));
+  // Sentrale antimønstre skal være listet
+  assert.ok(s.includes("Last year I") || s.includes("Last year I…"));
+  assert.ok(s.includes("J2020 girls asked me"));
+  assert.ok(s.includes("hospital tender"));
   // Sørmarka skal være i MICHEL_CONTEXT og/eller MOMENT ARCHETYPES
   assert.ok(s.includes("Sørmarka"));
-  // Plan A: positive anchor-eksempler er nå fjernet — Gemini regurgiterte dem
-  assert.ok(s.includes("NO positive anchor template is provided"));
 });
 
 test("MICHEL_CONTEXT eksporteres som konstant for gjenbruk", () => {
@@ -284,15 +285,17 @@ test("kapper ankere over 240 tegn med ellipse", () => {
   assert.ok(!s.includes("A".repeat(280)));
 });
 
-test("Plan A: positive eksempler er fjernet, blokkliste mot overbrukte anker erstatter dem", () => {
+test("Schema-eksempel beskriver framing+momentSuggestions+landing", () => {
   const s = prompts.buildSystemPrompt({
     voiceProfile: fixtureVoiceProfile(),
     pillarInfo: fixturePillarInfo(),
   });
-  // Den nye strukturen erklærer eksplisitt at ingen positive templates gis
-  assert.ok(s.includes("NO positive anchor template is provided"));
-  // Tre overbrukte ankere skal være eksplisitt listet som AVOID
-  assert.ok(s.includes("over-used moments"));
+  // Skjemaet skal beskrive de tre nye feltene
+  assert.ok(s.includes('"framing"'));
+  assert.ok(s.includes('"momentSuggestions"'));
+  assert.ok(s.includes('"landing"'));
+  // Konkrete instruksjoner skal være med
+  assert.ok(s.includes("filler-prompts") || s.includes("filler-suggestions"));
 });
 
 test("inkluderer forbud mot tilbakehenvisning til artikkelen i hale-setning", () => {
@@ -511,13 +514,14 @@ test("string-pillar konverteres til number", () => {
   assert.strictEqual(r.suggestions[0].pillar, 2);
 });
 
-test("normaliserer alle textfelt med trim", () => {
+test("normaliserer alle textfelt med trim (legacy anchor blir framing)", () => {
   const raw = JSON.stringify([
     { pillar: 1, title: "  T  ", anchor: "  A  ", sourceUrl: "  u  ", reasoning: " r " },
   ]);
   const r = prompts.parseResponse(raw);
   assert.strictEqual(r.suggestions[0].title, "T");
-  assert.strictEqual(r.suggestions[0].anchor, "A");
+  // Legacy anchor mappes til framing
+  assert.strictEqual(r.suggestions[0].framing, "A");
   assert.strictEqual(r.suggestions[0].sourceUrl, "u");
   assert.strictEqual(r.suggestions[0].reasoning, "r");
 });
@@ -628,6 +632,89 @@ test("michelPosts: buildCombinedPrompt forwarder michelPosts", () => {
   });
   assert.ok(combined.includes("MICHEL'S OWN POSTS"));
   assert.ok(combined.includes("Hope as structure"));
+});
+
+console.log("\n— v0.14 hallusinasjons-fiks: framing + momentSuggestions + landing —");
+
+test("v0.14: parser nytt format med framing+momentSuggestions+landing", () => {
+  const raw = JSON.stringify({
+    suggestions: [
+      {
+        pillar: 4,
+        title: "Competitors fix their own weaknesses",
+        framing: "Competitor study isn't a one-time exercise. The ones who notice their own gaps before you do are the ones already closing them.",
+        momentSuggestions: [
+          "A recent competitor product review at Laerdal",
+          "An ISO 13485 audit finding",
+        ],
+        landing: "What you don't see, they're already shipping.",
+        sourceUrl: "https://x.com",
+        fitScore: 9,
+      }
+    ],
+    rejected: []
+  });
+  const r = prompts.parseResponse(raw);
+  assert.strictEqual(r.ok, true);
+  const s = r.suggestions[0];
+  assert.strictEqual(s.framing.startsWith("Competitor study"), true);
+  assert.strictEqual(s.momentSuggestions.length, 2);
+  assert.strictEqual(s.landing, "What you don't see, they're already shipping.");
+});
+
+test("v0.14: legacy anchor mappes til framing, momentSuggestions/landing er tomme", () => {
+  const raw = JSON.stringify([
+    { pillar: 1, title: "T", anchor: "Legacy anchor text here", sourceUrl: "u", fitScore: 7 }
+  ]);
+  const r = prompts.parseResponse(raw);
+  assert.strictEqual(r.ok, true);
+  const s = r.suggestions[0];
+  assert.strictEqual(s.framing, "Legacy anchor text here");
+  assert.deepStrictEqual(s.momentSuggestions, []);
+  assert.strictEqual(s.landing, "");
+});
+
+test("v0.14: suggestion uten framing OG uten anchor filtreres bort", () => {
+  const raw = JSON.stringify({
+    suggestions: [
+      { pillar: 1, title: "Empty", momentSuggestions: ["A moment"] },
+      { pillar: 2, title: "Valid", framing: "A framing." }
+    ]
+  });
+  const r = prompts.parseResponse(raw);
+  assert.strictEqual(r.suggestions.length, 1);
+  assert.strictEqual(r.suggestions[0].title, "Valid");
+});
+
+test("v0.14: momentSuggestions filtreres for tom/lange", () => {
+  const raw = JSON.stringify({
+    suggestions: [
+      {
+        pillar: 1, title: "T",
+        framing: "A framing.",
+        momentSuggestions: ["", "Valid one", "x".repeat(400), "Valid two"],
+      }
+    ]
+  });
+  const r = prompts.parseResponse(raw);
+  const s = r.suggestions[0];
+  assert.strictEqual(s.momentSuggestions.length, 2);
+  assert.strictEqual(s.momentSuggestions[0], "Valid one");
+  assert.strictEqual(s.momentSuggestions[1], "Valid two");
+});
+
+test("v0.14: momentSuggestions cap på 5", () => {
+  const raw = JSON.stringify({
+    suggestions: [
+      {
+        pillar: 1, title: "T",
+        framing: "A framing.",
+        momentSuggestions: ["a", "b", "c", "d", "e", "f", "g"],
+      }
+    ]
+  });
+  const r = prompts.parseResponse(raw);
+  assert.strictEqual(r.suggestions[0].momentSuggestions.length, 5);
 });
 
 console.log("\n— buildCombinedPrompt (manuell modus) —");

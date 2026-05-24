@@ -1,6 +1,6 @@
 # Neste sesjon — handover
 
-Sist oppdatert 2026-05-22 (etter Phase 13 — michelPosts + rejected + mangler-URL).
+Sist oppdatert 2026-05-22 (etter Phase 14 — hallusinasjons-fiks via framing+momentSuggestions+landing).
 
 ## TL;DR
 
@@ -11,7 +11,7 @@ publiserbare ankere etter prompten ble strammet.** Velg basert på behov:
 - **✋ Manuell (Claude Sonnet via claude.ai)** — ~3-4 min, gratis (Pro),
   backup eller high-stakes
 
-Bundle 433 KB. 148 tester grønne. Recent-anchors-eksklusjon + michelPosts holder
+Bundle 438 KB. 153 tester grønne. Recent-anchors-eksklusjon + michelPosts holder
 systemet selvkorrigerende uke-til-uke.
 
 ## Anbefalt flyt for ukentlige nyhetsbrev
@@ -52,8 +52,8 @@ for én runde, så kommer kvaliteten tilbake.
 
 ```bash
 cd ~/Documents/Claude/Projects/Content\ Brain
-npm run test                          # 148 unit-tester
-node scripts/build.js --bundle-only   # dist/index.html ~433 KB
+npm run test                          # 153 unit-tester
+node scripts/build.js --bundle-only   # dist/index.html ~438 KB
 ```
 
 ## SSH-status

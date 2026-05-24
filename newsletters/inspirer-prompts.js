@@ -39,7 +39,11 @@
     {
       "pillar": 1 | 2 | 3 | 4,
       "title": "working title (English, punchy, no clickbait, max 80 chars)",
-      "anchor": "anchor moment in Michel's voice: a concrete scene, observation, or technical detail he could open with. 2-4 sentences. Already in his style — not generic 'as a leader I think...'. End with a hint at the underlying angle, don't spell out the conclusion.",
+      "framing": "1-2 sentences in Michel's voice that frame the IDEA of the post — the angle, the observation, the principle. NO fabricated scenes. NEVER write 'Last year I…', 'A few weeks ago…', 'One of the X asked me…'. You do not know what specific events Michel has lived. Stay conceptual or use a question/observation he could anchor in his own real memory.",
+      "momentSuggestions": [
+        "2-3 short prompts (8-15 words each) describing TYPES of moments Michel could fill in from his actual life. Drawn from MOMENT ARCHETYPES menu. Examples: 'A recent competitor product review at Laerdal', 'An ISO 13485 audit detail you noticed', 'A J2020 game where structure mattered more than encouragement'. These are filler-prompts, not claimed memories."
+      ],
+      "landing": "1 short sentence (max 20 words) in Michel's voice that could close the post — a punchline, a quiet observation, or a question. NO 'And the lesson here is…' or 'What this shows is…'.",
       "sourceUrl": "the article URL exactly as it appeared in the newsletter",
       "sourceTitle": "the article's own title (for reference)",
       "fitScore": 1-10 (10 = perfect fit for Michel's voice and current rotation),
@@ -50,7 +54,7 @@
     {
       "sourceTitle": "the rejected article's title",
       "sourceUrl": "the article URL (for reference)",
-      "reason": "one short, honest sentence on why this article was deliberately skipped (e.g., 'Pure survey data, no clear angle for Michel's voice', or 'Generic management cliché — would feel like LinkedIn-default')"
+      "reason": "one short, honest sentence on why this article was deliberately skipped"
     }
   ]
 }`;
@@ -154,11 +158,28 @@ Read the newsletter and pick 2-3 articles that would make the strongest LinkedIn
 DIVERSITY RULE — IMPORTANT:
 Aim to surface articles across DIFFERENT pillars when possible. If three strong candidates all map to Pillar 1, only keep the top 1 and look for next-best fits in Pillar 2, 3, or 4. This protects Michel's four-pillar rotation. Single-pillar suggestions are only acceptable if the newsletter genuinely contains nothing else workable for him.
 
-ANCHOR MOMENT QUALITY — THIS IS WHERE MOST SUGGESTIONS FAIL:
+ANCHOR QUALITY — READ THIS CAREFULLY:
 
-The anchor is the FIRST 2-4 sentences of a LinkedIn post Michel could publish. It opens with a specific moment from HIS life and lands on a sharp observation. The reader does not need to be told how the moment connects to the article — the URL handles that.
+Your job is NOT to write a finished anchor for Michel. You don't know what events he has lived, what conversations he has had, or what specific scenes he could reference. If you fabricate "Last year I sat through a tender response…" or "One of the J2020 girls asked me…", you are inventing fiction about a real person. He will catch it immediately and lose trust in the tool.
 
-MOMENT ARCHETYPES — pick from this menu (don't reuse the exact same ones every time):
+INSTEAD: For each article you pick, generate THREE separate things:
+
+1. **framing** — 1-2 sentences in his voice that name the IDEA, ANGLE, or OBSERVATION. Conceptual, not narrative. Examples of good framings:
+   - "Competitor study isn't a one-time exercise. The ones who notice their own gaps before you do are the ones already closing them."
+   - "Promotion isn't recognition. It's a career change."
+   - "Constraints aren't what slows teams down. The wrong constraints are."
+
+2. **momentSuggestions** — 2-3 SHORT prompts (8-15 words) describing TYPES of moments Michel could fill in from his own life. These are NOT claimed memories. They are filler-suggestions. Examples:
+   - "A recent competitor product or feature review at Laerdal"
+   - "An ISO 13485 audit finding"
+   - "A J2020 game where structure mattered more than encouragement"
+   - "A 1:1 about engineer-to-manager transition"
+
+3. **landing** — 1 short sentence (max 20 words) in his voice that could close the post. Sharp, no "and the lesson here is".
+
+NEVER write "Last year I…", "A few weeks ago…", "One of the X asked me…", "When my daughter said…". Those phrases CLAIM a specific memory you don't have access to. Stay in framings + suggestions.
+
+MOMENT ARCHETYPES — pick from this menu to FILL momentSuggestions (don't reuse the exact same ones every time):
 
   Pillar 1 (Connective leadership) — moments at Laerdal:
     • A 1:1 where a team member surfaced a tension you hadn't seen
@@ -194,30 +215,27 @@ MOMENT ARCHETYPES — pick from this menu (don't reuse the exact same ones every
     • A board discussion at National Health & Life Science Export
     • Crossing wires between two industries that don't usually meet
 
-CRITICAL ANCHOR RULES — these are the most common failure modes, do NOT make them:
+CRITICAL RULES FOR FRAMING + MOMENTS + LANDING:
 
-1. DO NOT end the anchor with a sentence that ties back to the article. No "This article shows that…", no "This echoes the point about…", no "This translates directly to…", no "The article's point about… resonates with…". The reader has the URL. End on Michel's own observation, full stop.
+1. ABSOLUTE BAN ON FABRICATED SCENES. Phrases that claim a specific lived event are forbidden in framing and landing. This includes:
+   • "Last year I…" / "Two weeks ago I…" / "Yesterday in a 1:1…"
+   • "One of the J2020 girls asked me…" / "When my daughter said…"
+   • "I sat through a hospital tender…" / "I sat down with a competitor's AED…"
+   • "In a board meeting last Tuesday…"
+   • Any sentence that asserts a specific past event in Michel's life.
+   These belong in momentSuggestions (as filler-prompts), NEVER in framing or landing.
 
-2. DO NOT write summaries of the article. "Gallup research consistently points to…" is the article talking, not Michel. Find what Michel saw.
+2. DO NOT end framing or landing with a sentence that ties back to the article. No "This article shows that…", no "This echoes the point about…", no "This translates directly to…". The reader has the URL.
 
-3. DO NOT rely on the same three over-used moments. The following anchors have been suggested in prior runs and now feel canned. AVOID them unless absolutely no other archetype fits the article:
-   • "The first time I sat down with a competitor's AED — not as a demo, as an actual user…"
-   • "My J2020 girls at Sørmarka Arena need exactly the three things Gallup measures…"
-   • "Ten phases of Content Brain in three weeks with Claude and Gemini… after 22:00…"
+3. DO NOT write summaries of the article in framing. "Gallup research consistently points to…" is the article talking. Frame the IDEA in Michel's voice as if HE were stating it.
 
-   When you reach for one of these instinctively, STOP and pick a different moment from the MOMENT ARCHETYPES menu. Same pillar, different scene. Examples that would freshen things up:
-   • Pillar 4 (competition): an ISO 13485 audit detail, a CE-mark conversation, a partner meeting in the US, an OEM negotiation, a hospital tender response — NOT another AED demo.
-   • Pillar 1 (leadership): a budget meeting, an onboarding conversation, a post-mortem, a strategy off-site, a board prep session — NOT another Gallup-Sørmarka bridge.
-   • Pillar 3 (building): a refactor that broke a test, a library decision, a deploy failure, a code review of his own old code, pair-coding with an LLM — NOT another 22:00 Content Brain session.
-
-4. NO positive anchor template is provided in this prompt — that is deliberate. You must generate the anchor from MICHEL'S CONTEXT and the MOMENT ARCHETYPES menu, not by copying a model anchor. Start every anchor with a SPECIFIC moment that names a concrete place, person, or action.
-
-BAD ANCHOR (avoid these shapes — they are summaries, not anchors):
-  • "This article argues that studying competitors is important."
-  • "Gallup research consistently points to hope as the top psychological need."
-  • "The instinct is often to remove constraints..."
-  • "As a leader, I believe that..."
-  • Anything ending in "This article shows…", "This echoes…", or "This translates to…".
+4. momentSuggestions should be SHORT (8-15 words each), use indefinite articles (a, an, the recent), and clearly read as "fill in your own version" — not as claimed memories. Good shape:
+   • "A recent customer conversation about competitor options"
+   • "A J2020 game decision that wasn't about effort"
+   • "A code review of your own old work"
+   Bad shape (sounds like claimed memory):
+   • "The board meeting last week where Jonas raised X"
+   • "When you sat down with the ZOLL AED"
 
 OUTPUT FORMAT:
 Return ONLY a JSON object. No prose before or after. No markdown code fence. Just the raw JSON. Use this shape:
@@ -357,13 +375,35 @@ If nothing in the newsletter fits any pillar, return { "suggestions": [], "rejec
       const pillar = Number(s.pillar);
       if (![1, 2, 3, 4].includes(pillar)) continue;
       const title = String(s.title || "").trim();
-      const anchor = String(s.anchor || "").trim();
       const sourceUrl = String(s.sourceUrl || "").trim();
-      if (!title || !anchor) continue;
+      if (!title) continue;
+
+      // Nytt format: framing + momentSuggestions + landing
+      let framing = String(s.framing || "").trim();
+      let landing = String(s.landing || "").trim();
+      let momentSuggestions = Array.isArray(s.momentSuggestions)
+        ? s.momentSuggestions
+            .map(m => String(m || "").trim())
+            .filter(m => m.length > 0 && m.length < 300)
+            .slice(0, 5)
+        : [];
+
+      // Bakoverkompatibilitet: gammelt format hadde "anchor" istedenfor framing+landing+suggestions.
+      // Hvis vi har anchor men ikke framing, bruk anchor som framing og la suggestions/landing være tomme.
+      const legacyAnchor = String(s.anchor || "").trim();
+      if (!framing && legacyAnchor) {
+        framing = legacyAnchor;
+      }
+
+      // Krev minst framing (eller legacy anchor) for å være gyldig
+      if (!framing) continue;
+
       suggestions.push({
         pillar,
         title: title.slice(0, 200),
-        anchor: anchor.slice(0, 2000),
+        framing: framing.slice(0, 1000),
+        momentSuggestions,
+        landing: landing.slice(0, 300),
         sourceUrl,
         sourceTitle: String(s.sourceTitle || "").trim().slice(0, 200),
         fitScore: Math.max(1, Math.min(10, Number(s.fitScore) || 5)),

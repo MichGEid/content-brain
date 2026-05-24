@@ -174,7 +174,14 @@
         .filter(p => p.body && p.source && /^https?:\/\//.test(p.source))
         .sort((a, b) => (b.capturedAt || "").localeCompare(a.capturedAt || ""))
         .slice(0, n || 8)
-        .map(p => p.body);
+        .map(p => {
+          // Body fra v0.14+ er "framing\n\nMulige anker-moment:\n  • ...\n\nLanding: ..."
+          // Trekk ut bare framing-delen (før første tomme linje) for exclusion-listen.
+          const body = String(p.body || "");
+          const firstBreak = body.indexOf("\n\n");
+          return firstBreak > 0 ? body.slice(0, firstBreak).trim() : body.trim();
+        })
+        .filter(a => a.length > 20);
     } catch (e) { return []; }
   }
 
@@ -401,6 +408,7 @@
           const cls = pillarColors[s.pillar] || "";
           const pillarInfo = getPillarInfo()[s.pillar];
           const pillarLabel = pillarInfo ? pillarInfo.label : `Pillar ${s.pillar}`;
+          const hasMomentSuggestions = Array.isArray(s.momentSuggestions) && s.momentSuggestions.length > 0;
           return `
             <article class="inspirer-card" data-idx="${idx}">
               <header class="inspirer-card-head">
@@ -409,8 +417,21 @@
                 <span class="inspirer-card-score" title="Fit-score (1-10)">★ ${s.fitScore}/10</span>
               </header>
               <h3 class="inspirer-card-title">${escapeHtml(s.title)}</h3>
-              <p class="inspirer-card-anchor">${escapeHtml(s.anchor)}</p>
-              ${s.reasoning ? `<p class="inspirer-card-reason muted small">→ ${escapeHtml(s.reasoning)}</p>` : ""}
+
+              <p class="inspirer-card-framing">${escapeHtml(s.framing)}</p>
+
+              ${hasMomentSuggestions ? `
+                <details class="inspirer-card-moments">
+                  <summary>💡 Mulige anker-moment (${s.momentSuggestions.length}) — fyll inn ditt eget</summary>
+                  <ul class="inspirer-card-moment-list">
+                    ${s.momentSuggestions.map(m => `<li>${escapeHtml(m)}</li>`).join("")}
+                  </ul>
+                </details>
+              ` : ""}
+
+              ${s.landing ? `<p class="inspirer-card-landing">→ ${escapeHtml(s.landing)}</p>` : ""}
+
+              ${s.reasoning ? `<p class="inspirer-card-reason muted small">${escapeHtml(s.reasoning)}</p>` : ""}
               <div class="inspirer-card-meta">
                 ${s.sourceUrl ? `<a href="${escapeHtml(s.sourceUrl)}" target="_blank" rel="noopener" class="muted small">↗ ${escapeHtml(s.sourceTitle || "Kilde")}</a>` : ""}
               </div>
@@ -429,6 +450,26 @@
         ` : ""}
       </div>
     `;
+  }
+
+  /**
+   * Komponer en redigerbar body for Pipeline-posten ut av framing +
+   * moment-suggestions + landing. Michel kan editere dette etter at
+   * det er lagt til.
+   */
+  function composeBodyForPipeline(s) {
+    const parts = [];
+    if (s.framing) parts.push(s.framing);
+    if (Array.isArray(s.momentSuggestions) && s.momentSuggestions.length > 0) {
+      parts.push("");
+      parts.push("Mulige anker-moment (velg ett, gjør om til ekte scene):");
+      s.momentSuggestions.forEach(m => parts.push(`  • ${m}`));
+    }
+    if (s.landing) {
+      parts.push("");
+      parts.push(`Landing: ${s.landing}`);
+    }
+    return parts.join("\n");
   }
 
   // ----------------------------- events -----------------------------
@@ -707,7 +748,7 @@
       status: "idea",
       pillar: s.pillar,
       title: s.title,
-      body: s.anchor,
+      body: composeBodyForPipeline(s),
       source: s.sourceUrl || "",
     };
     window.ContentBrain.addPost(post);
@@ -737,7 +778,7 @@
         status: "idea",
         pillar: s.pillar,
         title: s.title,
-        body: s.anchor,
+        body: composeBodyForPipeline(s),
         source: s.sourceUrl || "",
       });
     }
