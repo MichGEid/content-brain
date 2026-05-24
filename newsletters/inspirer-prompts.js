@@ -428,6 +428,126 @@ If nothing in the newsletter fits any pillar, return { "suggestions": [], "rejec
   }
 
   /**
+   * Bygg en regenerasjons-prompt for ÉN spesifikk suggestion. Brukes av
+   * "↻ Annet anker"-knappen for å få en helt ny vinkel på samme artikkel.
+   *
+   * @param {Object} opts
+   * @param {Object} opts.suggestion - Den eksisterende suggestion-en som skal byttes
+   * @param {Array<Object>} [opts.previousAngles] - Tidligere prøvde framings (for å unngå gjentakelse)
+   * @param {Object} opts.voiceProfile
+   * @param {Object} opts.pillarInfo
+   * @param {Array<Object>} [opts.michelPosts]
+   * @returns {{system: string, user: string}}
+   */
+  function buildRegenerationPrompt({ suggestion, previousAngles, voiceProfile, pillarInfo, michelPosts }) {
+    if (!suggestion) throw new Error("buildRegenerationPrompt: suggestion er påkrevd");
+    const system = buildSystemPrompt({ voiceProfile, pillarInfo, michelPosts });
+    const pillar = suggestion.pillar;
+    const pillarLabel = (pillarInfo && pillarInfo[pillar] && pillarInfo[pillar].label) || `Pillar ${pillar}`;
+
+    const allPrevious = [];
+    if (suggestion.framing) {
+      allPrevious.push({
+        framing: suggestion.framing,
+        momentSuggestions: suggestion.momentSuggestions || [],
+        landing: suggestion.landing || "",
+      });
+    }
+    if (Array.isArray(previousAngles)) {
+      previousAngles.forEach(a => allPrevious.push(a));
+    }
+
+    const previousBlock = allPrevious.length
+      ? `PREVIOUSLY SUGGESTED ANGLES for this same article (do NOT just paraphrase these — find a genuinely different observational stance):\n\n` +
+        allPrevious.map((a, i) => {
+          const parts = [`Attempt ${i + 1}:`];
+          if (a.framing) parts.push(`  framing: ${a.framing}`);
+          if (a.momentSuggestions && a.momentSuggestions.length) {
+            parts.push(`  moments: ${a.momentSuggestions.join("; ")}`);
+          }
+          if (a.landing) parts.push(`  landing: ${a.landing}`);
+          return parts.join("\n");
+        }).join("\n\n") +
+        "\n"
+      : "";
+
+    const user = `Generate an ALTERNATIVE angle for ONE specific article that Michel already saw a suggestion for. Same article, same pillar, different observational stance.
+
+ARTICLE:
+- Title: ${suggestion.sourceTitle || suggestion.title || "(unknown)"}
+- URL: ${suggestion.sourceUrl || "(unknown)"}
+- Target pillar: Pillar ${pillar} — ${pillarLabel}
+
+${previousBlock}
+Output ONE suggestion object as raw JSON (no array, no wrapping {suggestions}, no markdown fence). Use this shape:
+
+{
+  "pillar": ${pillar},
+  "title": "new working title (max 80 chars)",
+  "framing": "1-2 sentences in Michel's voice — conceptual, NO fabricated scenes",
+  "momentSuggestions": ["2-3 short prompts of moment types Michel could fill in"],
+  "landing": "1 short sentence (max 20 words) that could close the post",
+  "sourceUrl": "${suggestion.sourceUrl || ""}",
+  "sourceTitle": "${suggestion.sourceTitle || ""}",
+  "fitScore": 1-10,
+  "reasoning": "one sentence: what's different about THIS angle vs the previous one(s)"
+}
+
+Remember: ABSOLUTE BAN ON FABRICATED SCENES. The framing must be a conceptual hook, not a story.`;
+
+    return { system, user };
+  }
+
+  /**
+   * Parse en regenerasjons-respons (forventer ett enkelt suggestion-objekt,
+   * ikke en array eller {suggestions: ...}-wrapper).
+   */
+  function parseRegenerationResponse(rawText) {
+    if (!rawText || typeof rawText !== "string") {
+      return { ok: false, error: "Tom respons fra modellen" };
+    }
+
+    const tryParse = s => {
+      try {
+        const v = JSON.parse(s);
+        if (v && typeof v === "object") return v;
+      } catch (_) {}
+      return null;
+    };
+
+    // Trinn 1: direkte parse
+    let parsed = tryParse(rawText.trim());
+
+    // Trinn 2: fence
+    if (!parsed) {
+      const fenceMatch = rawText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      if (fenceMatch) parsed = tryParse(fenceMatch[1].trim());
+    }
+
+    // Trinn 3: finn første {...} som parser
+    if (!parsed) {
+      const firstBrace = rawText.indexOf("{");
+      if (firstBrace >= 0) {
+        for (let end = rawText.lastIndexOf("}"); end > firstBrace; end--) {
+          if (rawText[end] !== "}") continue;
+          const candidate = rawText.slice(firstBrace, end + 1);
+          const p = tryParse(candidate);
+          if (p) { parsed = p; break; }
+        }
+      }
+    }
+
+    if (!parsed) return { ok: false, error: "Kunne ikke parse JSON-objekt fra respons" };
+
+    // Bruk eksisterende validator ved å wrappe som suggestions-array
+    const result = validateAndNormalize({ suggestions: [parsed], rejected: [] });
+    if (result.suggestions.length === 0) {
+      return { ok: false, error: "Suggestion mangler kritiske felt (pillar, title, framing)" };
+    }
+    return { ok: true, suggestion: result.suggestions[0] };
+  }
+
+  /**
    * Bygg én kombinert prompt for paste i claude.ai / ChatGPT / Gemini chat
    * (manuell modus). Chat-UI-er har vanligvis ikke separat system-input,
    * så vi flettes system + user til en enkelt melding med tydelig
@@ -451,7 +571,9 @@ If nothing in the newsletter fits any pillar, return { "suggestions": [], "rejec
     buildSystemPrompt,
     buildUserPrompt,
     buildCombinedPrompt,
+    buildRegenerationPrompt,
     parseResponse,
+    parseRegenerationResponse,
     validateAndNormalize,
     SUGGESTION_SCHEMA_DESCRIPTION,
     MICHEL_CONTEXT,

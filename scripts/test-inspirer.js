@@ -764,5 +764,101 @@ test("buildCombinedPrompt kaster når både URL og tekst er tomme", () => {
   }));
 });
 
+console.log("\n— Regenerasjons-prompt (v0.15 ↻ Annet anker) —");
+
+function fixtureSuggestion() {
+  return {
+    pillar: 4,
+    title: "Competitors will fix their own weaknesses",
+    framing: "Competitor study isn't a one-time exercise. The ones who notice their own gaps before you do are the ones already closing them.",
+    momentSuggestions: ["A recent competitor product review at Laerdal"],
+    landing: "Static thinking is the most expensive assumption.",
+    sourceUrl: "https://x.com/article",
+    sourceTitle: "Learning from competition",
+    fitScore: 9,
+    reasoning: "Pillar 4 fit",
+  };
+}
+
+test("buildRegenerationPrompt: inkluderer system + user med pillar og forrige framing", () => {
+  const { system, user } = prompts.buildRegenerationPrompt({
+    suggestion: fixtureSuggestion(),
+    voiceProfile: fixtureVoiceProfile(),
+    pillarInfo: fixturePillarInfo(),
+  });
+  assert.ok(system.includes("Pillar 4"));
+  assert.ok(system.includes("Laerdal"));
+  assert.ok(user.includes("Pillar 4"));
+  assert.ok(user.includes("Krysspollinering"));
+  assert.ok(user.includes("Learning from competition"));
+  assert.ok(user.includes("https://x.com/article"));
+  assert.ok(user.includes("Competitor study isn't a one-time"));
+  assert.ok(user.toLowerCase().includes("alternative") || user.toLowerCase().includes("different"));
+});
+
+test("buildRegenerationPrompt: inkluderer previousAngles som exclusion-liste", () => {
+  const { user } = prompts.buildRegenerationPrompt({
+    suggestion: fixtureSuggestion(),
+    previousAngles: [
+      { framing: "Old framing one.", momentSuggestions: ["mom1"], landing: "old landing" },
+      { framing: "Old framing two.", momentSuggestions: ["mom2"], landing: "old landing 2" },
+    ],
+    voiceProfile: fixtureVoiceProfile(),
+    pillarInfo: fixturePillarInfo(),
+  });
+  assert.ok(user.includes("Old framing one"));
+  assert.ok(user.includes("Old framing two"));
+  assert.ok(user.includes("Attempt 1"));
+  assert.ok(user.includes("Attempt 3")); // current + 2 previous
+});
+
+test("buildRegenerationPrompt: kaster når suggestion mangler", () => {
+  assert.throws(() => prompts.buildRegenerationPrompt({
+    voiceProfile: fixtureVoiceProfile(),
+    pillarInfo: fixturePillarInfo(),
+  }));
+});
+
+test("parseRegenerationResponse: parser ren JSON-objekt", () => {
+  const raw = JSON.stringify({
+    pillar: 4,
+    title: "Alternative title",
+    framing: "A different framing entirely.",
+    momentSuggestions: ["A new moment type"],
+    landing: "A new landing.",
+    fitScore: 8,
+  });
+  const r = prompts.parseRegenerationResponse(raw);
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.suggestion.framing, "A different framing entirely.");
+  assert.strictEqual(r.suggestion.title, "Alternative title");
+});
+
+test("parseRegenerationResponse: parser JSON wrapped i markdown fence", () => {
+  const raw = '```json\n{"pillar": 1, "title": "T", "framing": "F", "momentSuggestions": ["m"], "landing": "L", "fitScore": 7}\n```';
+  const r = prompts.parseRegenerationResponse(raw);
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.suggestion.framing, "F");
+});
+
+test("parseRegenerationResponse: parser JSON med prose før/etter", () => {
+  const raw = `Here's an alternative:\n\n{"pillar": 2, "title": "T", "framing": "F", "fitScore": 9}\n\nLet me know.`;
+  const r = prompts.parseRegenerationResponse(raw);
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.suggestion.pillar, 2);
+});
+
+test("parseRegenerationResponse: returnerer ok:false ved ugyldig respons", () => {
+  const r = prompts.parseRegenerationResponse("not json at all");
+  assert.strictEqual(r.ok, false);
+  assert.ok(r.error);
+});
+
+test("parseRegenerationResponse: ok:false når kritiske felt mangler", () => {
+  const raw = JSON.stringify({ pillar: 1, title: "T" });  // mangler framing
+  const r = prompts.parseRegenerationResponse(raw);
+  assert.strictEqual(r.ok, false);
+});
+
 console.log(`\n${passed} passed · ${failed} failed`);
 process.exit(failed === 0 ? 0 : 1);

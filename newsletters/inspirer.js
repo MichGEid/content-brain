@@ -441,7 +441,9 @@
               </div>
               <div class="inspirer-card-actions">
                 <button class="primary inspirer-add-btn" data-idx="${idx}">+ Legg til Pipeline</button>
+                ${ui.mode === "auto" ? `<button class="linkbtn inspirer-regen-btn" data-idx="${idx}" ${s.isRegenerating ? "disabled" : ""}>${s.isRegenerating ? "↻ Henter…" : "↻ Annet anker"}</button>` : ""}
                 <button class="linkbtn inspirer-skip-btn" data-idx="${idx}">Hopp over</button>
+                ${(Array.isArray(s.previousAngles) && s.previousAngles.length > 0) ? `<span class="muted small inspirer-card-regen-count" title="Antall tidligere vinkler prøvd">↻ ${s.previousAngles.length}</span>` : ""}
               </div>
             </article>
           `;
@@ -616,6 +618,9 @@
     $$(".inspirer-skip-btn").forEach(btn => {
       btn.addEventListener("click", () => onSkip(Number(btn.dataset.idx)));
     });
+    $$(".inspirer-regen-btn").forEach(btn => {
+      btn.addEventListener("click", () => onRegenerateCard(Number(btn.dataset.idx)));
+    });
     const addAllBtn = $("#inspirer-add-all");
     if (addAllBtn) addAllBtn.addEventListener("click", onAddAll);
     const clearBtn = $("#inspirer-clear");
@@ -781,6 +786,99 @@
     saveUi();
     renderShell();
     bindEvents();
+  }
+
+  /**
+   * Be LLM-en om en helt ny vinkel på samme artikkel. Tidligere framings
+   * sendes som exclusion-liste så LLM ikke bare paraphraser. Erstatter
+   * framing/momentSuggestions/landing in-place.
+   */
+  async function onRegenerateCard(idx) {
+    const s = ui.suggestions[idx];
+    if (!s) return;
+    if (ui.mode !== "auto") {
+      alert("↻ Annet anker er bare tilgjengelig i auto-modus.");
+      return;
+    }
+    if (s.isRegenerating) return;
+
+    const provider = getCurrentProvider();
+    const model = getCurrentModel();
+
+    if (!window.NewsletterInspirer?.prompts?.buildRegenerationPrompt) {
+      alert("Regenerasjons-funksjon ikke tilgjengelig.");
+      return;
+    }
+    if (!window.Ghostwriter?.api?.generate) {
+      alert("Ghostwriter api.js ikke tilgjengelig.");
+      return;
+    }
+
+    // Marker som loading
+    s.isRegenerating = true;
+    renderShell();
+    bindEvents();
+
+    try {
+      const voiceProfile = getVoiceProfile();
+      const pillarInfo = getPillarInfo();
+      const michelPosts = getMichelPosts(12);
+
+      const { system, user } = window.NewsletterInspirer.prompts.buildRegenerationPrompt({
+        suggestion: s,
+        previousAngles: s.previousAngles || [],
+        voiceProfile,
+        pillarInfo,
+        michelPosts,
+      });
+
+      const result = await window.Ghostwriter.api.generate({
+        provider,
+        model,
+        system,
+        prompt: user,
+      });
+
+      const rawText = typeof result === "string" ? result : (result?.text || "");
+      const parsed = window.NewsletterInspirer.prompts.parseRegenerationResponse(rawText);
+
+      if (!parsed.ok) {
+        console.warn("[inspirer] Regenerasjon parse-feil:", parsed.error, rawText);
+        alert(`Kunne ikke tolke nytt svar: ${parsed.error}\n\nPrøv igjen, eller bytt provider.`);
+        s.isRegenerating = false;
+        saveUi();
+        renderShell();
+        bindEvents();
+        return;
+      }
+
+      // Lagre gamle vinkel som previousAngle
+      if (!Array.isArray(s.previousAngles)) s.previousAngles = [];
+      s.previousAngles.push({
+        framing: s.framing,
+        momentSuggestions: s.momentSuggestions || [],
+        landing: s.landing || "",
+      });
+      // Bytt inn ny vinkel (behold pillar, sourceUrl, sourceTitle)
+      const newAngle = parsed.suggestion;
+      s.title = newAngle.title || s.title;
+      s.framing = newAngle.framing;
+      s.momentSuggestions = newAngle.momentSuggestions || [];
+      s.landing = newAngle.landing || "";
+      s.fitScore = newAngle.fitScore || s.fitScore;
+      s.reasoning = newAngle.reasoning || s.reasoning;
+      s.isRegenerating = false;
+      saveUi();
+      renderShell();
+      bindEvents();
+    } catch (e) {
+      console.error("[inspirer] Regenerasjon feilet:", e);
+      alert(`Regenerasjon feilet: ${e.message}`);
+      s.isRegenerating = false;
+      saveUi();
+      renderShell();
+      bindEvents();
+    }
   }
 
   function onAddAll() {
