@@ -1,5 +1,39 @@
 # Changelog
 
+## v0.13 (2026-05-22) — Inspirasjon: michelPosts + rejected + mangler-URL
+
+Tre forbedringer etter A/B-sammenligning av auto/manuell/Copilot:
+
+### michelPosts i prompten
+
+`buildSystemPrompt` aksepterer nå `michelPosts[]` med Pipeline-poster
+(published + ready + draft). LLM ser Michels faktiske skriving istedenfor
+bare en beskrivelse, og kan unngå topic-overlap. Wired i både auto-modus
+(`onFetch`) og manuell modus (`buildPromptForManualMode`). Sortering:
+published først (sterkeste stemme-signal), så ready, så draft. Cap 12
+poster, body trunkeres på 320 tegn.
+
+### Rejected articles (inspirert av Copilot)
+
+LLM returnerer nå `{ suggestions: [...], rejected: [...] }` istedenfor
+bare en array. Hver rejected har sourceTitle/sourceUrl/reason. UI
+rendrer "🚫 Bevisst utelatt"-collapsible under suggestion-cards.
+
+Parser er bakoverkompatibel — gammel array-format tolkes som suggestions
+med tom rejected. Brace-finderen er strammet til å bare akseptere objekter
+med `suggestions` eller `rejected` som array, så den ikke plukker opp et
+nested suggestion-objekt fra legacy array som inkluderer prose.
+
+### Mangler-URL-varsel på Pipeline-kort
+
+Published-poster uten linkedinUrl viser nå en oransje "⚠ mangler URL"-
+pille i meta-raden. Fanger bug-patternet hvor Analytics-sync ikke får
+tak i posten fordi URL er glemt.
+
+### Tester og bundle
+
+12 nye tester (56 i inspirer, 148 totalt). Bundle 431 KB (var 427 KB).
+
 ## v0.12 (2026-05-22) — Inspirasjon manuell modus
 
 Lar Michel kjøre sortering gjennom Claude Pro-abonnementet sitt istedenfor

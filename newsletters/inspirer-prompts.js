@@ -30,18 +30,30 @@
   /**
    * JSON-skjema som LLM-en blir bedt om å følge. Holdes som konstant og
    * speiles i system-prompten + brukes av parser-validering.
+   *
+   * Returneres som et JSON-objekt med to felter: suggestions (artikler å
+   * bruke) og rejected (artikler bevisst utelatt med begrunnelse).
    */
-  const SUGGESTION_SCHEMA_DESCRIPTION = `[
-  {
-    "pillar": 1 | 2 | 3 | 4,
-    "title": "working title (English, punchy, no clickbait, max 80 chars)",
-    "anchor": "anchor moment in Michel's voice: a concrete scene, observation, or technical detail he could open with. 2-4 sentences. Already in his style — not generic 'as a leader I think...'. End with a hint at the underlying angle, don't spell out the conclusion.",
-    "sourceUrl": "the article URL exactly as it appeared in the newsletter",
-    "sourceTitle": "the article's own title (for reference)",
-    "fitScore": 1-10 (10 = perfect fit for Michel's voice and current rotation),
-    "reasoning": "one sentence: why this article fits this pillar for Michel specifically"
-  }
-]`;
+  const SUGGESTION_SCHEMA_DESCRIPTION = `{
+  "suggestions": [
+    {
+      "pillar": 1 | 2 | 3 | 4,
+      "title": "working title (English, punchy, no clickbait, max 80 chars)",
+      "anchor": "anchor moment in Michel's voice: a concrete scene, observation, or technical detail he could open with. 2-4 sentences. Already in his style — not generic 'as a leader I think...'. End with a hint at the underlying angle, don't spell out the conclusion.",
+      "sourceUrl": "the article URL exactly as it appeared in the newsletter",
+      "sourceTitle": "the article's own title (for reference)",
+      "fitScore": 1-10 (10 = perfect fit for Michel's voice and current rotation),
+      "reasoning": "one sentence: why this article fits this pillar for Michel specifically"
+    }
+  ],
+  "rejected": [
+    {
+      "sourceTitle": "the rejected article's title",
+      "sourceUrl": "the article URL (for reference)",
+      "reason": "one short, honest sentence on why this article was deliberately skipped (e.g., 'Pure survey data, no clear angle for Michel's voice', or 'Generic management cliché — would feel like LinkedIn-default')"
+    }
+  ]
+}`;
 
   /**
    * Bygg system-prompten. Bruker Voice Profile (banlist, regler, beskrivelse)
@@ -208,11 +220,14 @@ BAD ANCHOR (avoid these shapes — they are summaries, not anchors):
   • Anything ending in "This article shows…", "This echoes…", or "This translates to…".
 
 OUTPUT FORMAT:
-Return ONLY a JSON array. No prose before or after. No markdown code fence. Just the raw JSON. Use this shape:
+Return ONLY a JSON object. No prose before or after. No markdown code fence. Just the raw JSON. Use this shape:
 
 ${SUGGESTION_SCHEMA_DESCRIPTION}
 
-If nothing in the newsletter fits, return [].`;
+REJECTED ARTICLES — always include this:
+For every article in the newsletter that you considered but did NOT pick, add an entry to the "rejected" array with a one-sentence honest reason. This builds Michel's trust in your editorial filtering and lets him see what was considered. Skip sponsored content from rejected (no need to mention sponsor blurbs). Don't list articles that are obviously off-topic for any pillar — just the ones that were close but didn't make the cut.
+
+If nothing in the newsletter fits any pillar, return { "suggestions": [], "rejected": [...] } with reasons for each non-trivial article you saw.`;
   }
 
   /**
@@ -242,12 +257,12 @@ If nothing in the newsletter fits, return [].`;
 
   /**
    * Robust JSON-parser for LLM-respons. Modellen kan returnere:
-   *   - ren JSON
+   *   - ren JSON-objekt { suggestions: [...], rejected: [...] } (nytt format)
+   *   - ren JSON-array [...] (gammelt format, bakoverkompatibelt)
    *   - JSON wrapped i ```json … ```
    *   - JSON med prose før/etter (selv om vi ba om "no prose")
    *
-   * Vi finner det første `[…]`-blokken som parser uten feil og returnerer
-   * den. Returnerer { ok: true, suggestions: [...] } eller
+   * Returnerer { ok: true, suggestions: [...], rejected: [...] } eller
    * { ok: false, error: "…", raw: rawText }.
    */
   function parseResponse(rawText) {
@@ -255,48 +270,89 @@ If nothing in the newsletter fits, return [].`;
       return { ok: false, error: "Tom respons fra modellen", raw: rawText };
     }
 
-    // Trinn 1: prøv hele teksten først (i tilfelle modellen var snill)
+    // Prøv å parse en JSON-streng. Returnerer parsed value (objekt eller array)
+    // eller null hvis ugyldig.
     const tryParse = s => {
       try {
         const v = JSON.parse(s);
-        if (Array.isArray(v)) return v;
+        if (Array.isArray(v) || (v && typeof v === "object")) return v;
       } catch (_) {}
       return null;
     };
 
+    // Trinn 1: prøv hele teksten direkte
     const direct = tryParse(rawText.trim());
-    if (direct) return validateAndNormalize(direct);
+    if (direct) return normalizeAndValidate(direct);
 
     // Trinn 2: strip ```json fence hvis det finnes
     const fenceMatch = rawText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
     if (fenceMatch) {
       const fenced = tryParse(fenceMatch[1].trim());
-      if (fenced) return validateAndNormalize(fenced);
+      if (fenced) return normalizeAndValidate(fenced);
     }
 
-    // Trinn 3: finn første [...] som parser. Naiv men effektiv —
-    // gå utenfra og inn, prøv hver lukkende ] mot første åpnende [.
+    // Trinn 3: finn første { ... } som parser OG ser ut som vårt objekt-format
+    // (har suggestions eller rejected som array). Dette unngår å plukke opp
+    // et nested suggestion-objekt fra en legacy array.
+    const firstBrace = rawText.indexOf("{");
+    if (firstBrace >= 0) {
+      for (let end = rawText.lastIndexOf("}"); end > firstBrace; end--) {
+        if (rawText[end] !== "}") continue;
+        const candidate = rawText.slice(firstBrace, end + 1);
+        const parsed = tryParse(candidate);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)
+            && (Array.isArray(parsed.suggestions) || Array.isArray(parsed.rejected))) {
+          return normalizeAndValidate(parsed);
+        }
+      }
+    }
+
+    // Trinn 4: finn første [...] som parser (gammelt format)
     const firstBracket = rawText.indexOf("[");
     if (firstBracket >= 0) {
-      // Prøv successively kortere kandidater (brute-force, lite N)
       for (let end = rawText.lastIndexOf("]"); end > firstBracket; end--) {
         if (rawText[end] !== "]") continue;
         const candidate = rawText.slice(firstBracket, end + 1);
         const parsed = tryParse(candidate);
-        if (parsed) return validateAndNormalize(parsed);
+        if (parsed) return normalizeAndValidate(parsed);
       }
     }
 
-    return { ok: false, error: "Kunne ikke finne gyldig JSON-array i respons", raw: rawText };
+    return { ok: false, error: "Kunne ikke finne gyldig JSON i respons", raw: rawText };
+  }
+
+  /**
+   * Normaliser inputformat (array eller objekt) til en konsistent struktur.
+   * Array tolkes som suggestions (bakoverkompatibelt med v0.11-format).
+   */
+  function normalizeAndValidate(parsed) {
+    if (Array.isArray(parsed)) {
+      // Gammelt format: bare en array av suggestions
+      return validateAndNormalize({ suggestions: parsed, rejected: [] });
+    }
+    // Nytt format: objekt med suggestions + rejected
+    return validateAndNormalize({
+      suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions : [],
+      rejected: Array.isArray(parsed.rejected) ? parsed.rejected : [],
+    });
   }
 
   /**
    * Filtrer ut suggestions som mangler kritiske felt eller har ugyldige
    * verdier. Normaliser typer (pillar som tall, fitScore innenfor 1-10).
+   * Aksepterer enten { suggestions, rejected } eller en ren array (legacy).
    */
-  function validateAndNormalize(arr) {
-    const cleaned = [];
-    for (const s of arr) {
+  function validateAndNormalize(input) {
+    // Backward compat: hvis input er en array, behandle som suggestions
+    const suggestionsRaw = Array.isArray(input)
+      ? input
+      : (Array.isArray(input?.suggestions) ? input.suggestions : []);
+    const rejectedRaw = (input && !Array.isArray(input) && Array.isArray(input.rejected))
+      ? input.rejected
+      : [];
+
+    const suggestions = [];
+    for (const s of suggestionsRaw) {
       if (!s || typeof s !== "object") continue;
       const pillar = Number(s.pillar);
       if (![1, 2, 3, 4].includes(pillar)) continue;
@@ -304,7 +360,7 @@ If nothing in the newsletter fits, return [].`;
       const anchor = String(s.anchor || "").trim();
       const sourceUrl = String(s.sourceUrl || "").trim();
       if (!title || !anchor) continue;
-      cleaned.push({
+      suggestions.push({
         pillar,
         title: title.slice(0, 200),
         anchor: anchor.slice(0, 2000),
@@ -314,7 +370,21 @@ If nothing in the newsletter fits, return [].`;
         reasoning: String(s.reasoning || "").trim().slice(0, 500),
       });
     }
-    return { ok: true, suggestions: cleaned };
+
+    const rejected = [];
+    for (const r of rejectedRaw) {
+      if (!r || typeof r !== "object") continue;
+      const sourceTitle = String(r.sourceTitle || "").trim();
+      const reason = String(r.reason || "").trim();
+      if (!sourceTitle || !reason) continue;
+      rejected.push({
+        sourceTitle: sourceTitle.slice(0, 200),
+        sourceUrl: String(r.sourceUrl || "").trim(),
+        reason: reason.slice(0, 500),
+      });
+    }
+
+    return { ok: true, suggestions, rejected };
   }
 
   /**

@@ -162,7 +162,8 @@ test("krever raw JSON i output (ingen markdown fence)", () => {
     pillarInfo: fixturePillarInfo(),
   });
   assert.ok(s.toLowerCase().includes("no markdown code fence"));
-  assert.ok(s.includes("JSON array"));
+  assert.ok(s.includes("JSON object"));
+  assert.ok(s.includes("rejected"));
 });
 
 test("inkluderer Michel-kontekst med Laerdal + konkurrenter + J2020", () => {
@@ -350,7 +351,7 @@ test("kaster feil hvis begge er tomme", () => {
 
 console.log("\n— parseResponse —");
 
-test("ren JSON-array parser direkte", () => {
+test("ren JSON-array parser direkte (legacy format)", () => {
   const raw = JSON.stringify([
     { pillar: 1, title: "T", anchor: "A", sourceUrl: "u", fitScore: 7 }
   ]);
@@ -359,6 +360,76 @@ test("ren JSON-array parser direkte", () => {
   assert.strictEqual(r.suggestions.length, 1);
   assert.strictEqual(r.suggestions[0].pillar, 1);
   assert.strictEqual(r.suggestions[0].fitScore, 7);
+  // Legacy-format gir tom rejected
+  assert.deepStrictEqual(r.rejected, []);
+});
+
+test("nytt JSON-objekt-format med suggestions + rejected", () => {
+  const raw = JSON.stringify({
+    suggestions: [
+      { pillar: 1, title: "Keep this", anchor: "Anchor here", fitScore: 8 }
+    ],
+    rejected: [
+      { sourceTitle: "AI survey", sourceUrl: "https://x/y", reason: "Pure data, no angle." },
+      { sourceTitle: "Best employee → worst manager", reason: "LinkedIn cliché." }
+    ]
+  });
+  const r = prompts.parseResponse(raw);
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.suggestions.length, 1);
+  assert.strictEqual(r.rejected.length, 2);
+  assert.strictEqual(r.rejected[0].sourceTitle, "AI survey");
+  assert.strictEqual(r.rejected[0].reason, "Pure data, no angle.");
+  assert.strictEqual(r.rejected[1].sourceUrl, "");
+});
+
+test("objekt-format med tom rejected er gyldig", () => {
+  const raw = JSON.stringify({
+    suggestions: [{ pillar: 2, title: "T", anchor: "A", fitScore: 7 }],
+    rejected: []
+  });
+  const r = prompts.parseResponse(raw);
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.suggestions.length, 1);
+  assert.deepStrictEqual(r.rejected, []);
+});
+
+test("objekt-format uten rejected-felt defaulter til tom array", () => {
+  const raw = JSON.stringify({
+    suggestions: [{ pillar: 2, title: "T", anchor: "A", fitScore: 7 }]
+  });
+  const r = prompts.parseResponse(raw);
+  assert.strictEqual(r.ok, true);
+  assert.deepStrictEqual(r.rejected, []);
+});
+
+test("rejected uten title eller reason filtreres bort", () => {
+  const raw = JSON.stringify({
+    suggestions: [],
+    rejected: [
+      { sourceTitle: "", reason: "no title" },
+      { sourceTitle: "no reason", reason: "" },
+      { sourceTitle: "Valid", reason: "Good reason." }
+    ]
+  });
+  const r = prompts.parseResponse(raw);
+  assert.strictEqual(r.rejected.length, 1);
+  assert.strictEqual(r.rejected[0].sourceTitle, "Valid");
+});
+
+test("objekt-format wrapped i markdown fence parser", () => {
+  const raw = '```json\n{"suggestions": [{"pillar": 3, "title": "T", "anchor": "A"}], "rejected": []}\n```';
+  const r = prompts.parseResponse(raw);
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.suggestions[0].pillar, 3);
+});
+
+test("objekt-format med prose før/etter parser", () => {
+  const raw = `Here you go:\n\n{"suggestions": [{"pillar": 4, "title": "T", "anchor": "A"}], "rejected": [{"sourceTitle": "X", "reason": "Y"}]}\n\nLet me know!`;
+  const r = prompts.parseResponse(raw);
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.suggestions[0].pillar, 4);
+  assert.strictEqual(r.rejected[0].sourceTitle, "X");
 });
 
 test("JSON wrapped i markdown fence parser", () => {

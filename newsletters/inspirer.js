@@ -32,6 +32,7 @@
     // kopierer JSON-svaret tilbake. Sidesteg av API-kostnad og rate limits.
     mode: "auto",         // "auto" | "manual"
     manualResponse: "",   // Pastet LLM-svar i manuell modus
+    rejected: [],         // Artikler LLM-en bevisst utelot (med begrunnelse)
   };
 
   /**
@@ -66,6 +67,7 @@
         ui.modelOverride = data.modelOverride || null;
         ui.mode = data.mode === "manual" ? "manual" : "auto";
         ui.manualResponse = data.manualResponse || "";
+        ui.rejected = Array.isArray(data.rejected) ? data.rejected : [];
       }
     } catch (e) {}
   }
@@ -83,6 +85,7 @@
         modelOverride: ui.modelOverride,
         mode: ui.mode,
         manualResponse: ui.manualResponse,
+        rejected: ui.rejected,
       }));
     } catch (e) {}
   }
@@ -299,6 +302,7 @@
 
       <div id="inspirer-results" class="inspirer-results">
         ${hasSuggestions ? renderSuggestions() : (ui.isLoading ? renderLoadingState() : (isManual ? "" : renderEmptyState()))}
+        ${renderRejected()}
       </div>
     `;
   }
@@ -363,6 +367,27 @@
         <p class="muted">Ingen forslag ennå. Lim inn en URL eller tekst over og klikk <em>Hent forslag</em>.</p>
         <p class="muted small">Tips: Gemini henter URL-en selv via url_context. For Claude/Ollama trenger du å paste teksten inn.</p>
       </div>
+    `;
+  }
+
+  function renderRejected() {
+    if (!ui.rejected || !ui.rejected.length) return "";
+    return `
+      <details class="inspirer-rejected">
+        <summary>🚫 Bevisst utelatt (${ui.rejected.length} ${ui.rejected.length === 1 ? "artikkel" : "artikler"})</summary>
+        <ul class="inspirer-rejected-list">
+          ${ui.rejected.map(r => `
+            <li>
+              <div class="inspirer-rejected-title">
+                ${r.sourceUrl
+                  ? `<a href="${escapeHtml(r.sourceUrl)}" target="_blank" rel="noopener">${escapeHtml(r.sourceTitle)} ↗</a>`
+                  : escapeHtml(r.sourceTitle)}
+              </div>
+              <div class="inspirer-rejected-reason muted small">→ ${escapeHtml(r.reason)}</div>
+            </li>
+          `).join("")}
+        </ul>
+      </details>
     `;
   }
 
@@ -620,6 +645,7 @@
       }
 
       ui.suggestions = parsed.suggestions;
+      ui.rejected = parsed.rejected || [];
       ui.lastFetched = new Date().toISOString();
       ui.lastSourceUrl = url || "(pastet tekst)";
       saveUi();
@@ -660,6 +686,7 @@
       return;
     }
     ui.suggestions = parsed.suggestions;
+    ui.rejected = parsed.rejected || [];
     ui.lastFetched = new Date().toISOString();
     ui.lastSourceUrl = ui.url || "(manuelt — pastet svar)";
     saveUi();
@@ -723,6 +750,7 @@
   function onClear() {
     if (ui.suggestions.length && !confirm("Tøm alle forslag uten å legge dem til?")) return;
     ui.suggestions = [];
+    ui.rejected = [];
     saveUi();
     renderShell();
     bindEvents();

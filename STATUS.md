@@ -1,6 +1,6 @@
 # Status — Content Brain + Ghostwriter + Analytics
 
-Sist oppdatert 2026-05-22. Versjon: v0.12 med Inspirasjon manuell modus (bruk Claude Pro istedenfor API).
+Sist oppdatert 2026-05-22. Versjon: v0.13 med Inspirasjon: Michels poster i prompten + rejected articles + mangler-URL-varsel.
 
 ## Helhetlig status
 
@@ -44,8 +44,11 @@ Sist oppdatert 2026-05-22. Versjon: v0.12 med Inspirasjon manuell modus (bruk Cl
 │             Auto/Manuell-toggle + bygg-                      │
 │             prompt-lokalt + paste-JSON-                      │
 │             tilbake (bruker Pro, ikke API)                   │
-│  Tests      136 unit-tester (32 GW +     ✅ Alle passerer   │
-│             60 Analytics + 44 Inspirer)                      │
+│  Phase 13   Inspirasjon: michelPosts i    ✅ Live (2026-05-22)│
+│             prompt + rejected articles +                     │
+│             mangler-URL-varsel på published                  │
+│  Tests      148 unit-tester (32 GW +     ✅ Alle passerer   │
+│             60 Analytics + 56 Inspirer)                      │
 └────────────────────────────────────────────────────────────┘
 ```
 
@@ -124,13 +127,13 @@ edit-tracker den genererte vs din endelige versjon:
 ## Test-coverage
 
 ```bash
-npm run test                # alle 136 tester
+npm run test                # alle 148 tester
 npm run test:edit-tracker   # 12 tester for n-gram diff + suggestions
 npm run test:conversation   # 20 tester for prompt-bygging og selectExamples
 npm run test:analytics      # 60 tester for parser, classifier, store, demo,
                             # top-perf, syncPublishedPostsToMetrics
-npm run test:inspirer       # 44 tester for prompt-bygger og JSON-parser
-                            # + buildCombinedPrompt for manuell modus
+npm run test:inspirer       # 56 tester for prompt-bygger, JSON-parser,
+                            # buildCombinedPrompt, michelPosts, rejected
 npm run test:prompts        # CLI for å se generert system+user prompt
 ```
 
@@ -204,7 +207,36 @@ content-brain/
 └── STATUS.md                   (denne)
 ```
 
-Bundle: ~424 KB (kryptert via StaticCrypt før deploy).
+Bundle: ~431 KB (kryptert via StaticCrypt før deploy).
+
+## Phase 13 — Michels poster i prompten + rejected + mangler-URL (2026-05-22)
+
+Tre konkrete forbedringer som responderer på faktisk bruk:
+
+**michelPosts i prompten:** `buildSystemPrompt` (og `buildCombinedPrompt`)
+aksepterer nå en `michelPosts[]`-array med pillar/status/title/body fra
+Pipeline-poster (published + ready + draft, ikke idea). Sorteres så
+published kommer først (sterkeste stemme-signal). Cap 12 poster, body
+truncates på 320 tegn. Lar LLM se Michels faktiske skriving og unngå
+topic-duplisering. Wired i både auto-modus og manuell modus.
+
+**Rejected articles:** LLM returnerer nå et JSON-objekt `{ suggestions: [...], rejected: [...] }`
+istedenfor bare en array. Hver rejected har `sourceTitle`, `sourceUrl` og
+`reason`. UI rendrer en collapsible "🚫 Bevisst utelatt"-seksjon under
+suggestion-cards. Bygger tillit til editorial-filtering — Michel ser hva
+LLM-en vurderte og dropte, og hvorfor (inspirert av Copilot-sammenlikning
+2026-05-22 hvor Copilot eksplisitt avviste "AI survey (84%)" og "Best
+employee → worst manager" med begrunnelse). Parser er bakoverkompatibel —
+ren array (legacy v0.11-format) tolkes fortsatt som suggestions med tom
+rejected.
+
+**Mangler-URL-varsel:** Pipeline-kort med `status === "published"` og tom
+`linkedinUrl` viser nå en oransje "⚠ mangler URL"-pille i meta-raden.
+Tooltip: "Uten LinkedIn-URL fanger ikke Analytics-sync denne posten".
+Fanger en konkret bug-pattern hvor Michel publiserer noe og glemmer URL-
+feltet, slik at Phase 10 sync-funksjonen ikke får tak i den.
+
+Bundle: 431 KB (var 427 KB). 12 nye tester (148 totalt).
 
 ## Inspirasjon manuell modus (Phase 12 — 2026-05-22)
 

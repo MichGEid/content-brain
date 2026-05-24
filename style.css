@@ -361,6 +361,18 @@ textarea { resize: vertical; font-family: inherit; }
   color: var(--text);
 }
 
+/* Mangler-URL-varsel på Pipeline-kort (published uten linkedinUrl) */
+.card-warning-pill {
+  font-size: 0.72rem;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(255, 159, 64, 0.15);
+  color: #d97706;
+  border: 1px solid rgba(255, 159, 64, 0.3);
+  cursor: help;
+  white-space: nowrap;
+}
+
 .card-head {
   display: flex;
   align-items: center;
@@ -2070,6 +2082,44 @@ textarea { resize: vertical; font-family: inherit; }
   padding-top: 0.5rem;
   border-top: 1px solid var(--border);
   margin-top: 0.4rem;
+}
+
+.inspirer-rejected {
+  margin-top: 1rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.9rem;
+  background: var(--bg-soft);
+}
+.inspirer-rejected summary {
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  user-select: none;
+}
+.inspirer-rejected[open] summary {
+  margin-bottom: 0.5rem;
+}
+.inspirer-rejected-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.inspirer-rejected-list li {
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.inspirer-rejected-list li:last-child { border-bottom: none; }
+.inspirer-rejected-title {
+  font-size: 0.9rem;
+}
+.inspirer-rejected-reason {
+  margin-top: 0.2rem;
+  font-style: italic;
 }
 
 /* Pipeline-sourced metric-rader (lagt til via sync, ikke CSV-import) */

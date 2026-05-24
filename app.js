@@ -316,6 +316,12 @@
     if (p.source)       meta.push(`<span title="${escapeHtml(p.source)}">kilde</span>`);
     if (p.linkedinUrl)  meta.push(`<a href="${escapeHtml(p.linkedinUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">LinkedIn ↗</a>`);
 
+    // Mangler-URL-varsel: published-poster uten linkedinUrl fanges ikke av
+    // Analytics-sync. Vis liten pille så Michel husker å fylle inn URL.
+    if (p.status === "published" && !p.linkedinUrl) {
+      meta.push(`<span class="card-warning-pill" title="Uten LinkedIn-URL fanger ikke Analytics-sync denne posten">⚠ mangler URL</span>`);
+    }
+
     // "→ Ghostwriter" tilgjengelig på alle ikke-publiserte kort
     const ghostwriterBtn = p.status !== "published"
       ? `<button class="linkbtn" data-action="ghostwriter" data-id="${p.id}" onclick="event.stopPropagation()">→ Ghostwriter</button>`
