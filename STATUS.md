@@ -1,6 +1,6 @@
 # Status — Content Brain + Ghostwriter + Analytics
 
-Sist oppdatert 2026-05-22. Versjon: v0.14 med Inspirasjon hallusinasjons-fiks (framing + momentSuggestions + landing istedenfor fabrikert anchor).
+Sist oppdatert 2026-05-22. Versjon: v0.15 med Inspirasjon ↻ Annet anker per suggestion-card.
 
 ## Helhetlig status
 
@@ -51,8 +51,11 @@ Sist oppdatert 2026-05-22. Versjon: v0.14 med Inspirasjon hallusinasjons-fiks (f
 │             fiks: framing + momentSuggestions                │
 │             + landing istedenfor fabrikert                   │
 │             anchor (LLM oppfant scener)                      │
-│  Tests      153 unit-tester (32 GW +     ✅ Alle passerer   │
-│             60 Analytics + 61 Inspirer)                      │
+│  Phase 15   ↻ Annet anker per kort:        ✅ Live (2026-05-22)│
+│             buildRegenerationPrompt med                      │
+│             previousAngles-eksklusjon                        │
+│  Tests      161 unit-tester (32 GW +     ✅ Alle passerer   │
+│             60 Analytics + 69 Inspirer)                      │
 └────────────────────────────────────────────────────────────┘
 ```
 
@@ -131,14 +134,15 @@ edit-tracker den genererte vs din endelige versjon:
 ## Test-coverage
 
 ```bash
-npm run test                # alle 153 tester
+npm run test                # alle 161 tester
 npm run test:edit-tracker   # 12 tester for n-gram diff + suggestions
 npm run test:conversation   # 20 tester for prompt-bygging og selectExamples
 npm run test:analytics      # 60 tester for parser, classifier, store, demo,
                             # top-perf, syncPublishedPostsToMetrics
-npm run test:inspirer       # 61 tester for prompt-bygger, JSON-parser,
+npm run test:inspirer       # 69 tester for prompt-bygger, JSON-parser,
                             # buildCombinedPrompt, michelPosts, rejected,
-                            # framing+momentSuggestions+landing (v0.14)
+                            # framing+momentSuggestions+landing (v0.14),
+                            # buildRegenerationPrompt + parseRegenerationResponse (v0.15)
 npm run test:prompts        # CLI for å se generert system+user prompt
 ```
 
@@ -212,7 +216,43 @@ content-brain/
 └── STATUS.md                   (denne)
 ```
 
-Bundle: ~438 KB (kryptert via StaticCrypt før deploy).
+Bundle: ~447 KB (kryptert via StaticCrypt før deploy).
+
+## Phase 15 — ↻ Annet anker per kort (2026-05-22)
+
+Per-suggestion-card regenerate. Brukeren liker artikkel + pillar-valg,
+men ikke framingen. Klikk ↻ Annet anker → LLM får regenerasjons-prompt
+med eksklusjon av tidligere framings → kortets framing/momentSuggestions/
+landing byttes ut in-place.
+
+**Hvordan det fungerer:**
+- `buildRegenerationPrompt({ suggestion, previousAngles, voiceProfile, pillarInfo, michelPosts })`
+  i `inspirer-prompts.js` returnerer `{system, user}` med same system-
+  prompt som vanlig + en user-prompt som lister alle tidligere framings
+  (current + previousAngles) som "Attempt 1, 2, 3…" og ber om en
+  genuint annerledes observational stance.
+- `parseRegenerationResponse(rawText)` aksepterer ett enkelt suggestion-
+  objekt (ikke array, ikke `{suggestions: ...}`-wrapper). Robust mot
+  fence/prose.
+- `onRegenerateCard(idx)` i `inspirer.js` markerer kortet som
+  `isRegenerating: true`, kaller `Ghostwriter.api.generate`, parser
+  responsen, pusher tidligere vinkel til `s.previousAngles[]`, og
+  oppdaterer kortet in-place.
+- Auto-modus eksklusivt (knapp skjules i manuell modus — bruker kan
+  bare re-fetche der eller bygge regen-prompt manuelt).
+
+**State-tracking:**
+- `suggestion.previousAngles[]` — array av `{framing, momentSuggestions,
+  landing}`-objekter fra tidligere kjøringer
+- `suggestion.isRegenerating` — bool, brukes for å disable knappen
+  og vise "↻ Henter…" under request
+
+**UI:**
+- `↻ Annet anker`-knapp ved siden av "Hopp over" på hvert kort i Auto-modus
+- Liten "↻ N" badge etter knappen som viser hvor mange tidligere vinkler
+  er prøvd
+
+**Tester:** 8 nye tester (69 i inspirer, 161 totalt). Bundle 447 KB.
 
 ## Phase 14 — Inspirasjon hallusinasjons-fiks (2026-05-22)
 

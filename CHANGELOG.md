@@ -1,5 +1,42 @@
 # Changelog
 
+## v0.15 (2026-05-22) — ↻ Annet anker per kort
+
+Per-suggestion-card regenerate. Brukeren liker artikkel + pillar-valg,
+men ikke framingen. Klikk ↻ Annet anker → LLM får regenerasjons-prompt
+med tidligere framings som eksklusjon → kortets framing/momentSuggestions/
+landing byttes ut in-place uten å re-fetche hele nyhetsbrevet.
+
+### Nye API-funksjoner
+
+- `buildRegenerationPrompt({ suggestion, previousAngles, voiceProfile,
+  pillarInfo, michelPosts })` returnerer `{system, user}` med samme
+  system-prompt som vanlig + en user-prompt som lister alle tidligere
+  framings som "Attempt 1, 2, 3…" og ber om en genuint annerledes
+  observational stance.
+- `parseRegenerationResponse(rawText)` aksepterer ett enkelt suggestion-
+  objekt (ikke array, ikke `{suggestions: ...}`-wrapper). Robust mot
+  fence/prose.
+
+### UI
+
+- `↻ Annet anker`-knapp ved siden av "Hopp over" på hvert kort i Auto-modus
+- Knappen skjules i Manuell modus (kan ikke auto-regenerate; bruker kan
+  re-fetche eller bygge regen-prompt manuelt)
+- Under request: "↻ Henter…" og knappen disabled
+- Etter første regenerate: "↻ N" badge etter knappen viser antall tidligere
+  vinkler prøvd
+
+### State-tracking
+
+- `suggestion.previousAngles[]` — array av `{framing, momentSuggestions,
+  landing}`-objekter fra tidligere kjøringer for samme artikkel
+- `suggestion.isRegenerating` — bool, disable-state mens vi venter
+
+### Tester og bundle
+
+8 nye tester (69 i inspirer, 161 totalt). Bundle 447 KB (var 439 KB).
+
 ## v0.14 (2026-05-22) — Inspirasjon hallusinasjons-fiks
 
 Etter Michel rapporterte at LLM-en oppfant spesifikke scener fra livet
