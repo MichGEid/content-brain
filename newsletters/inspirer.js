@@ -324,17 +324,20 @@
           ${canBuild
             ? `<div class="inspirer-manual-prompt-wrap">
                 <textarea id="inspirer-manual-prompt" rows="10" readonly>${escapeHtml(buildPromptForManualMode())}</textarea>
-                <button class="linkbtn" id="inspirer-copy-prompt">📋 Kopier prompt</button>
+                <div class="inspirer-manual-actions">
+                  <button class="linkbtn" id="inspirer-copy-prompt">📋 Kopier prompt</button>
+                  <button class="linkbtn" id="inspirer-clear-prompt">🗑 Tøm URL/tekst</button>
+                </div>
               </div>`
             : `<p class="muted small">Lim inn URL eller paste tekst over først, så genererer vi prompten.</p>`}
         </details>
 
         <details ${ui.manualResponse ? "open" : ""}>
           <summary>📥 Lim inn JSON-svar fra LLM-en</summary>
-          <textarea id="inspirer-manual-response" rows="8" placeholder='Lim inn JSON-arrayet du fikk tilbake (typisk noe sånt som [{"pillar":1, "title":"…", "anchor":"…", …}])'>${escapeHtml(ui.manualResponse)}</textarea>
+          <textarea id="inspirer-manual-response" rows="8" placeholder='Lim inn JSON-arrayet du fikk tilbake (typisk noe sånt som {"suggestions":[{"pillar":1, "title":"…", "framing":"…", …}], "rejected":[…]})'>${escapeHtml(ui.manualResponse)}</textarea>
           <div class="inspirer-manual-actions">
             <button class="primary" id="inspirer-parse-manual">Tolk svar → suggestion-cards</button>
-            <button class="linkbtn" id="inspirer-clear-manual">Tøm felt</button>
+            <button class="linkbtn" id="inspirer-clear-manual">🗑 Tøm JSON-felt</button>
           </div>
         </details>
       </div>
@@ -422,10 +425,11 @@
 
               ${hasMomentSuggestions ? `
                 <details class="inspirer-card-moments">
-                  <summary>💡 Mulige anker-moment (${s.momentSuggestions.length}) — fyll inn ditt eget</summary>
+                  <summary>💡 ${s.momentSuggestions.length} forslag til anker-scene — velg én og skriv selv i Ghostwriter</summary>
                   <ul class="inspirer-card-moment-list">
                     ${s.momentSuggestions.map(m => `<li>${escapeHtml(m)}</li>`).join("")}
                   </ul>
+                  <p class="muted small inspirer-card-moments-hint">Disse er bare inspirasjon — du skriver den ekte scenen når du redigerer posten i Ghostwriter article-reaction-modus.</p>
                 </details>
               ` : ""}
 
@@ -563,6 +567,19 @@
           promptEl.setSelectionRange(0, 99999);
           alert("Kunne ikke kopiere automatisk — trykk Cmd+C for å kopiere det markerte feltet.");
         }
+      });
+    }
+
+    // Manuell modus: tøm URL og tekst (regenererer prompten som tom)
+    const clearPromptBtn = $("#inspirer-clear-prompt");
+    if (clearPromptBtn) {
+      clearPromptBtn.addEventListener("click", () => {
+        if (!confirm("Tøm URL- og tekst-feltet? Prompten regenereres til tom.")) return;
+        ui.url = "";
+        ui.text = "";
+        saveUi();
+        renderShell();
+        bindEvents();
       });
     }
 

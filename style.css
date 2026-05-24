@@ -2098,6 +2098,12 @@ textarea { resize: vertical; font-family: inherit; }
   padding-left: 0.5rem;
   border-left: 2px solid var(--border);
 }
+.inspirer-card-moments-hint {
+  margin-top: 0.5rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--border);
+  font-style: italic;
+}
 .inspirer-card-landing {
   margin: 0.5rem 0;
   color: var(--text);
