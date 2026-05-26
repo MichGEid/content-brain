@@ -2172,14 +2172,14 @@ textarea { resize: vertical; font-family: inherit; }
   font-style: italic;
 }
 
-/* Pipeline-sourced metric-rader (lagt til via sync, ikke CSV-import) */
+/* Pipeline-sourced metric-rader (lagt til via sync, ikke CSV-import) — venter på tall */
 .metrics-source-badge {
   font-size: 0.7rem;
   padding: 1px 6px;
   border-radius: 999px;
-  background: rgba(99, 102, 241, 0.12);
-  color: var(--text-muted);
-  border: 1px solid var(--border);
+  background: rgba(255, 159, 64, 0.12);
+  color: #d97706;
+  border: 1px solid rgba(255, 159, 64, 0.3);
   white-space: nowrap;
   cursor: help;
 }

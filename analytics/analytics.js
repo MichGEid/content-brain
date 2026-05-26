@@ -742,7 +742,7 @@
               <td>
                 <div class="metrics-content metrics-content-clickable" data-modal-id="${escapeHtml(m.id)}" title="Klikk for å se hele innlegget">${escapeHtml(truncate(m.content, 100))}</div>
                 <div class="metrics-row-links">
-                  ${m.source === "pipeline" ? `<span class="metrics-source-badge" title="Lagt til automatisk fra Pipeline – fyll inn metrikker manuelt">📌 Pipeline</span>` : ""}
+                  ${m.source === "pipeline" ? `<span class="metrics-source-badge" title="Lagt til automatisk fra Pipeline da posten ble markert som publisert. Fyll inn visn/likes/komm/shares manuelt fra LinkedIn-appen.">⏳ Mangler tall</span>` : ""}
                   <button type="button" class="linkbtn metrics-view-btn" data-modal-id="${escapeHtml(m.id)}">👁️ Vis detaljer</button>
                   ${m.url ? `<a class="muted small" href="${escapeHtml(m.url)}" target="_blank" rel="noopener">↗ LinkedIn</a>` : ""}
                 </div>
