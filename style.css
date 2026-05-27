@@ -2172,6 +2172,30 @@ textarea { resize: vertical; font-family: inherit; }
   font-style: italic;
 }
 
+/* Ekskluderte metric-rader (outliers Michel har valgt å skjule fra analyse) */
+.metrics-row-excluded {
+  opacity: 0.4;
+}
+.metrics-row-excluded .metrics-input { background: transparent; }
+
+.metrics-exclude-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.3rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+.metrics-exclude-toggle input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+}
+.metrics-exclude-toggle:hover .metrics-exclude-label {
+  color: var(--text);
+}
+
 /* Pipeline-sourced metric-rader (lagt til via sync, ikke CSV-import) — venter på tall */
 .metrics-source-badge {
   font-size: 0.7rem;

@@ -205,8 +205,11 @@
         continue;
       }
 
-      // Ny rad — populer alt vi vet, sett engagement til 0
-      const content = (p.body || p.title || "").trim().slice(0, 280);
+      // Ny rad — populer alt vi vet, sett engagement til 0.
+      // Lagrer fullt body — modal henter uansett full versjon fra Pipeline
+      // via linkedPostId, men dette gjør at posts uten linkedPostId fortsatt
+      // viser komplett tekst.
+      const content = (p.body || p.title || "").trim();
       const entry = {
         id: "a_" + Math.random().toString(36).slice(2, 10),
         date,

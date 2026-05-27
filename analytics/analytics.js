@@ -396,9 +396,18 @@
     const cb = window.ContentBrain;
     const cbState = cb ? cb.getState() : null;
     let pillar = null, pipelineTitle = "", pipelineId = m.linkedPostId;
+    let displayContent = m.content || "";
     if (pipelineId && cbState && cbState.posts) {
       const p = cbState.posts.find(x => x.id === pipelineId);
-      if (p) { pillar = p.pillar; pipelineTitle = p.title; }
+      if (p) {
+        pillar = p.pillar;
+        pipelineTitle = p.title;
+        // Bruk fullt Pipeline-body istedenfor det avkortede metric.content
+        // (sync trunkerer på 280 tegn for liste-visning, men her vil vi se alt)
+        if (p.body && p.body.length > displayContent.length) {
+          displayContent = p.body;
+        }
+      }
     }
     if (!pillar && m._demoPillar) pillar = m._demoPillar;
 
@@ -451,7 +460,7 @@
       </div>
 
       <div class="post-modal-body">
-        ${escapeHtml(m.content || "(uten tekst)").split("\n").map(p => `<p>${p}</p>`).join("")}
+        ${escapeHtml(displayContent || "(uten tekst)").split("\n").map(p => `<p>${p}</p>`).join("")}
       </div>
 
       <div class="post-modal-actions">
@@ -602,7 +611,8 @@
 
   function renderOverview() {
     const { dashboard } = getStores();
-    const allMetrics = enrichedMetrics();
+    // Excluded metrics (outliers) skal IKKE være med i charts/snitt
+    const allMetrics = enrichedMetrics().filter(m => !m.excluded);
     const metrics = filterByDateRange(allMetrics);
 
     dashboard.renderEngagementBar("#analytics-chart-engagement", metrics, {
@@ -737,12 +747,12 @@
         </thead>
         <tbody>
           ${metrics.map(m => `
-            <tr data-id="${escapeHtml(m.id)}" data-url="${escapeHtml(m.url || "")}">
+            <tr data-id="${escapeHtml(m.id)}" data-url="${escapeHtml(m.url || "")}" class="${m.excluded ? "metrics-row-excluded" : ""}">
               <td class="muted small">${fmtDate(m.date)}</td>
               <td>
                 <div class="metrics-content metrics-content-clickable" data-modal-id="${escapeHtml(m.id)}" title="Klikk for å se hele innlegget">${escapeHtml(truncate(m.content, 100))}</div>
                 <div class="metrics-row-links">
-                  ${m.source === "pipeline" ? `<span class="metrics-source-badge" title="Lagt til automatisk fra Pipeline da posten ble markert som publisert. Fyll inn visn/likes/komm/shares manuelt fra LinkedIn-appen.">⏳ Mangler tall</span>` : ""}
+                  ${m.source === "pipeline" && !((m.impressions || 0) + (m.likes || 0) + (m.comments || 0) + (m.shares || 0)) ? `<span class="metrics-source-badge" title="Lagt til automatisk fra Pipeline da posten ble markert som publisert. Fyll inn visn/likes/komm/shares manuelt fra LinkedIn-appen.">⏳ Mangler tall</span>` : ""}
                   <button type="button" class="linkbtn metrics-view-btn" data-modal-id="${escapeHtml(m.id)}">👁️ Vis detaljer</button>
                   ${m.url ? `<a class="muted small" href="${escapeHtml(m.url)}" target="_blank" rel="noopener">↗ LinkedIn</a>` : ""}
                 </div>
@@ -752,7 +762,13 @@
               <td class="num"><input type="number" min="0" class="metrics-input" data-field="comments" value="${m.comments || ""}" placeholder="0"/></td>
               <td class="num"><input type="number" min="0" class="metrics-input" data-field="shares" value="${m.shares || ""}" placeholder="0"/></td>
               <td class="num metrics-sum">${m.engagements || 0}</td>
-              <td><span class="metrics-status muted small"></span></td>
+              <td>
+                <span class="metrics-status muted small"></span>
+                <label class="metrics-exclude-toggle" title="Ekskluder fra snitt og top-performers (f.eks. for outliers som skjevvrir analysen)">
+                  <input type="checkbox" class="metrics-exclude-checkbox" data-id="${escapeHtml(m.id)}" ${m.excluded ? "checked" : ""} />
+                  <span class="metrics-exclude-label">Skjul</span>
+                </label>
+              </td>
             </tr>
           `).join("")}
         </tbody>
@@ -770,6 +786,26 @@
     // Bind klikk på "Vis detaljer" og innholdet → åpne modal
     node.querySelectorAll("[data-modal-id]").forEach(el => {
       el.addEventListener("click", () => openPostModal(el.dataset.modalId));
+    });
+
+    // Bind Skjul-checkbox: marker som ekskludert fra analyse-aggregeringer
+    node.querySelectorAll(".metrics-exclude-checkbox").forEach(cb => {
+      cb.addEventListener("change", e => {
+        const id = e.target.dataset.id;
+        const metric = state.postMetrics.find(m => m.id === id);
+        if (!metric) return;
+        metric.excluded = !!e.target.checked;
+        const { store } = getStores();
+        store.save(state);
+        // Visuell dimming på raden
+        const row = e.target.closest("tr");
+        if (row) row.classList.toggle("metrics-row-excluded", metric.excluded);
+        // Re-render insights/charts så outliers utelates fra snitt
+        renderInsights();
+        if (ui.subTab === "overview") renderOverview();
+        if (ui.subTab === "engagers") renderEngagers();
+        if (ui.subTab === "patterns") renderPatterns();
+      });
     });
   }
 
@@ -797,6 +833,13 @@
     // Update sum-cell in UI
     const sumCell = row.querySelector(".metrics-sum");
     if (sumCell) sumCell.textContent = metric.engagements;
+
+    // Skjul "Mangler tall"-badgen så snart tall er fylt inn
+    const totalNow = (metric.impressions || 0) + (metric.likes || 0) + (metric.comments || 0) + (metric.shares || 0);
+    if (totalNow > 0) {
+      const badge = row.querySelector(".metrics-source-badge");
+      if (badge) badge.remove();
+    }
 
     // Status indicator
     const status = row.querySelector(".metrics-status");
@@ -959,6 +1002,7 @@
   function getTopPerformers(pillar, n = 3, opts = {}) {
     const metric = opts.metric || "engagements";
     return enrichedMetrics()
+      .filter(m => !m.excluded)
       .filter(m => !pillar || m.pillar === pillar)
       .filter(m => (m[metric] || 0) > 0)
       .sort((a, b) => (b[metric] || 0) - (a[metric] || 0))
@@ -975,6 +1019,7 @@
     const cutoff = Date.now() - sinceDays * 86400000;
 
     const recent = enrichedMetrics().filter(m => {
+      if (m.excluded) return false;
       if (!m.date) return false;
       return new Date(m.date).getTime() >= cutoff;
     });
