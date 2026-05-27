@@ -110,6 +110,19 @@
         class: "analytics-axis-label",
       }, fmtNum(v)));
 
+      // Skjul-knapp (×) på slutten — toggle excluded for outlier-håndtering
+      // direkte fra Topp innlegg-charten uten å hoppe til metrics-tabellen
+      const skjulX = W - padR + 22;
+      const skjulY = y + barH / 2 + 4;
+      const skjulBtn = el("text", {
+        x: skjulX, y: skjulY,
+        "text-anchor": "middle",
+        class: "analytics-bar-skjul",
+        "data-skjul-id": m.id || "",
+      }, "×");
+      skjulBtn.appendChild(el("title", {}, ["Skjul fra analyse (outlier)"]));
+      group.appendChild(skjulBtn);
+
       svg.appendChild(group);
     });
 
@@ -182,15 +195,32 @@
     ).join(" ");
     svg.appendChild(el("path", { d: pathD, class: "analytics-line" }));
 
-    // dots — pilarfarget
+    // dots — pilarfarget, klikkbare for å åpne post-modal
     data.forEach(d => {
-      svg.appendChild(el("circle", {
+      const dot = el("circle", {
         cx: xScale(d.x), cy: yScale(d.y), r: 4,
-        class: `analytics-dot ${pillarClassFor(d.m)}`,
-      }));
+        class: `analytics-dot analytics-dot-clickable ${pillarClassFor(d.m)}`,
+        "data-metric-id": d.m.id || "",
+      });
+      // Tooltip via <title>-element
+      if (d.m) {
+        const titleEl = el("title", {}, [
+          `${(d.m.content || d.m.title || "(uten tekst)").slice(0, 80)}\n${d.m[metric] || 0} ${metric}`,
+        ]);
+        dot.appendChild(titleEl);
+      }
+      svg.appendChild(dot);
     });
 
     node.appendChild(svg);
+
+    // Bind klikk på dots → kall analytics post-modal (samme som "Vis detaljer")
+    node.querySelectorAll("[data-metric-id]").forEach(dot => {
+      dot.addEventListener("click", () => {
+        const id = dot.getAttribute("data-metric-id");
+        if (id && window.Analytics?._openPostModal) window.Analytics._openPostModal(id);
+      });
+    });
   }
 
   // ---------- pillar breakdown ----------
@@ -233,21 +263,54 @@
 
     const max = Math.max(1, ...stats.map(s => s.avg));
     const html = stats.map(s => `
-      <div class="analytics-pillar-row">
-        <div class="analytics-pillar-label">
-          <span class="dot p${s.pillar || "-"}"></span> ${escapeHtml(s.label)}
-          <span class="muted small">${s.count} innlegg</span>
+      <details class="analytics-pillar-row analytics-pillar-row-clickable" data-pillar="${s.pillar}">
+        <summary>
+          <div class="analytics-pillar-label">
+            <span class="dot p${s.pillar || "-"}"></span> ${escapeHtml(s.label)}
+            <span class="muted small">${s.count} innlegg</span>
+          </div>
+          <div class="analytics-pillar-bar">
+            <div class="analytics-pillar-fill p${s.pillar || "-"}" style="width:${(s.avg / max) * 100}%"></div>
+          </div>
+          <div class="analytics-pillar-val">
+            <strong>${fmtNum(Math.round(s.avg))}</strong>
+            <span class="muted small">snitt ${metric}</span>
+          </div>
+        </summary>
+        <div class="analytics-pillar-drilldown">
+          ${renderPillarPostList(metrics.filter(m => (m.pillar || 0) === s.pillar), metric)}
         </div>
-        <div class="analytics-pillar-bar">
-          <div class="analytics-pillar-fill p${s.pillar || "-"}" style="width:${(s.avg / max) * 100}%"></div>
-        </div>
-        <div class="analytics-pillar-val">
-          <strong>${fmtNum(Math.round(s.avg))}</strong>
-          <span class="muted small">snitt ${metric}</span>
-        </div>
-      </div>
+      </details>
     `).join("");
     node.innerHTML = html;
+
+    // Bind klikk på drill-down poster
+    node.querySelectorAll("[data-drilldown-id]").forEach(row => {
+      row.addEventListener("click", () => {
+        const id = row.getAttribute("data-drilldown-id");
+        if (id && window.Analytics?._openPostModal) window.Analytics._openPostModal(id);
+      });
+    });
+  }
+
+  /**
+   * Mini-liste over poster bak en pilar — vises som drill-down når brukeren
+   * klikker pilar-raden i Per pilar-snitt.
+   */
+  function renderPillarPostList(metrics, metric) {
+    if (!metrics.length) {
+      return '<div class="analytics-empty muted small">Ingen innlegg i denne pilaren.</div>';
+    }
+    const sorted = metrics.slice().sort((a, b) => (b[metric] || 0) - (a[metric] || 0));
+    return `<ul class="analytics-pillar-drilldown-list">
+      ${sorted.map(m => `
+        <li data-drilldown-id="${escapeHtml(m.id || "")}">
+          <span class="analytics-drilldown-date muted small">${m.date ? fmtDate(m.date) : "—"}</span>
+          <span class="analytics-drilldown-content">${escapeHtml(truncate(m.content || m.title || "(uten tekst)", 80))}</span>
+          <span class="analytics-drilldown-num"><strong>${fmtNum(m[metric] || 0)}</strong></span>
+        </li>
+      `).join("")}
+    </ul>`;
   }
 
   // ---------- heatmap: ukedag × time ----------

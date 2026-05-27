@@ -1389,6 +1389,25 @@ textarea { resize: vertical; font-family: inherit; }
 .analytics-grid       { stroke: var(--border); stroke-width: 1; stroke-dasharray: 2 4; }
 .analytics-line       { fill: none; stroke: var(--text); stroke-width: 1.5; }
 .analytics-bar        { fill: var(--text); opacity: 0.85; }
+.analytics-dot-clickable { cursor: pointer; transition: r 0.15s ease; }
+.analytics-dot-clickable:hover { r: 6.5; }
+
+.analytics-bar-skjul {
+  cursor: pointer;
+  fill: var(--text-faint, #9ca3af);
+  font-size: 16px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.analytics-bar-group:hover .analytics-bar-skjul { opacity: 0.7; }
+.analytics-bar-skjul:hover { opacity: 1; fill: #d97706; }
+
+.analytics-show-more-row {
+  display: flex;
+  justify-content: center;
+  padding: 0.6rem 0 0.2rem;
+}
+
 .analytics-bar.p1, .analytics-dot.p1, .analytics-pillar-fill.p1 { fill: var(--p1); background: var(--p1); }
 .analytics-bar.p2, .analytics-dot.p2, .analytics-pillar-fill.p2 { fill: var(--p2); background: var(--p2); }
 .analytics-bar.p3, .analytics-dot.p3, .analytics-pillar-fill.p3 { fill: var(--p3); background: var(--p3); }
@@ -1420,6 +1439,46 @@ textarea { resize: vertical; font-family: inherit; }
   transition: width 0.3s ease;
 }
 .analytics-pillar-val { font-size: 0.85rem; text-align: right; }
+
+/* Pilar-row som <details> for drill-down */
+.analytics-pillar-row-clickable {
+  padding: 0;
+  border-radius: var(--radius);
+}
+.analytics-pillar-row-clickable[open] { background: var(--bg-soft); }
+.analytics-pillar-row-clickable summary {
+  display: grid;
+  grid-template-columns: 200px 1fr 140px;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.4rem 0.6rem;
+  cursor: pointer;
+  list-style: none;
+  border-radius: var(--radius);
+}
+.analytics-pillar-row-clickable summary::-webkit-details-marker { display: none; }
+.analytics-pillar-row-clickable summary:hover { background: var(--bg-soft); }
+.analytics-pillar-drilldown {
+  padding: 0.4rem 0.6rem 0.6rem;
+}
+.analytics-pillar-drilldown-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.analytics-pillar-drilldown-list li {
+  display: grid;
+  grid-template-columns: 100px 1fr 80px;
+  gap: 0.6rem;
+  padding: 0.35rem 0.4rem;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.analytics-pillar-drilldown-list li:last-child { border-bottom: none; }
+.analytics-pillar-drilldown-list li:hover { background: var(--bg); }
+.analytics-drilldown-num { text-align: right; color: var(--text); }
+.analytics-drilldown-content { color: var(--text-muted); }
 
 /* Heatmap */
 .analytics-heatmap {

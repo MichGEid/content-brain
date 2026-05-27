@@ -260,6 +260,10 @@
                   <option value="date-desc">Nyeste først</option>
                   <option value="date-asc">Eldste først</option>
                   <option value="engagement-desc">Engasjement høyt → lavt</option>
+                  <option value="impressions-desc">Visninger høyt → lavt</option>
+                  <option value="likes-desc">Likes høyt → lavt</option>
+                  <option value="comments-desc">Kommentarer høyt → lavt</option>
+                  <option value="shares-desc">Shares høyt → lavt</option>
                 </select>
               </label>
               <span class="muted small" id="analytics-metrics-summary"></span>
@@ -629,11 +633,48 @@
     const barChart = document.getElementById("analytics-chart-engagement");
     if (barChart) {
       barChart.querySelectorAll(".analytics-bar-group").forEach(g => {
-        g.addEventListener("click", () => {
+        g.addEventListener("click", (e) => {
+          // Skjul-knappen stopper propagation, men dobbelt sikkerhet:
+          if (e.target.classList && e.target.classList.contains("analytics-bar-skjul")) return;
           const id = g.getAttribute("data-id");
           if (id) openPostModal(id);
         });
       });
+      // Skjul-knapp på hver bar — toggle excluded
+      barChart.querySelectorAll(".analytics-bar-skjul").forEach(btn => {
+        btn.addEventListener("click", e => {
+          e.stopPropagation();
+          const id = btn.getAttribute("data-skjul-id");
+          const m = state.postMetrics.find(x => x.id === id);
+          if (!m) return;
+          m.excluded = true;
+          const { store } = getStores();
+          store.save(state);
+          renderInsights();
+          renderOverview();
+        });
+      });
+
+      // Legg til "Vis mer" / "Vis færre"-knapp under SVG-en
+      const allMatching = metrics.filter(m => (m[ui.metric] || 0) > 0).length;
+      if (!barChart.querySelector(".analytics-show-more-row")) {
+        const row = document.createElement("div");
+        row.className = "analytics-show-more-row";
+        const showMore = document.createElement("button");
+        showMore.className = "linkbtn";
+        showMore.textContent = ui.topN < allMatching ? `+ Vis flere (nå ${Math.min(ui.topN, allMatching)} av ${allMatching})` : `↺ Tilbakestill til 10 (viser ${allMatching})`;
+        showMore.addEventListener("click", () => {
+          if (ui.topN < allMatching) {
+            ui.topN = Math.min(ui.topN + 10, allMatching);
+          } else {
+            ui.topN = 10;
+          }
+          saveUi();
+          renderOverview();
+        });
+        row.appendChild(showMore);
+        barChart.appendChild(row);
+      }
     }
 
     const summary = document.getElementById("analytics-summary");
@@ -705,9 +746,13 @@
     else if (ui.metricsFilter === "has") metrics = metrics.filter(hasMetrics);
 
     // Sort
-    if (ui.metricsSort === "date-desc")        metrics.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
-    else if (ui.metricsSort === "date-asc")    metrics.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
-    else if (ui.metricsSort === "engagement-desc") metrics.sort((a, b) => (b.engagements || 0) - (a.engagements || 0));
+    if (ui.metricsSort === "date-desc")             metrics.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+    else if (ui.metricsSort === "date-asc")         metrics.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+    else if (ui.metricsSort === "engagement-desc")  metrics.sort((a, b) => (b.engagements || 0) - (a.engagements || 0));
+    else if (ui.metricsSort === "impressions-desc") metrics.sort((a, b) => (b.impressions || 0) - (a.impressions || 0));
+    else if (ui.metricsSort === "likes-desc")       metrics.sort((a, b) => (b.likes || 0) - (a.likes || 0));
+    else if (ui.metricsSort === "comments-desc")    metrics.sort((a, b) => (b.comments || 0) - (a.comments || 0));
+    else if (ui.metricsSort === "shares-desc")      metrics.sort((a, b) => (b.shares || 0) - (a.shares || 0));
 
     if (summary) {
       summary.textContent = `${withMetrics} av ${total} har metrikker · ${total - withMetrics} gjenstår`;
@@ -1056,6 +1101,17 @@
 
   const Analytics = {
     init,
+    /**
+     * Åpne post-detalj-modal for en gitt metric-id. Brukes av dashboard.js
+     * sine klikkbare elementer (trend-dots, bar-charts).
+     */
+    _openPostModal(id) {
+      if (!state) {
+        const { store } = getStores();
+        state = store.load();
+      }
+      openPostModal(id);
+    },
     /**
      * Topp-N performende innlegg for en pilar.
      * Brukes av Ghostwriter for å auto-foreslå few-shot eksempler.
