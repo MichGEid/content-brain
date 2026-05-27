@@ -304,9 +304,11 @@
               <ul id="analytics-data-summary"></ul>
 
               <div class="analytics-danger">
+                <button class="linkbtn" id="analytics-find-duplicates" title="Finn metrics med samme content (fingerprint) men ulike datoer. Vises som liste du kan rydde i.">🔍 Finn mulige duplikater</button>
                 <button class="linkbtn" id="analytics-clear-demo" title="Fjerner kun metrics og connections som ble lagt til via 'Last inn demo-data'. Dine ekte poster blir igjen.">🧪 Slett bare demo-data</button>
                 <button class="linkbtn danger" id="analytics-reset">Slett all analytics-data</button>
               </div>
+              <div id="analytics-duplicates-result" class="analytics-duplicates-result"></div>
             </div>
           </div>
         </section>
@@ -372,6 +374,8 @@
     if (resetBtn) resetBtn.addEventListener("click", resetAll);
     const clearDemoBtn = document.getElementById("analytics-clear-demo");
     if (clearDemoBtn) clearDemoBtn.addEventListener("click", clearDemoData);
+    const findDupBtn = document.getElementById("analytics-find-duplicates");
+    if (findDupBtn) findDupBtn.addEventListener("click", findDuplicates);
 
     // Demo data
     const demoBtn = document.getElementById("analytics-demo-load");
@@ -619,8 +623,10 @@
   function renderOverview() {
     const { dashboard } = getStores();
     // Excluded metrics (outliers) skal IKKE være med i charts/snitt
-    const allMetrics = enrichedMetrics().filter(m => !m.excluded);
+    const fullList = enrichedMetrics();
+    const allMetrics = fullList.filter(m => !m.excluded);
     const metrics = filterByDateRange(allMetrics);
+    const excludedCount = fullList.filter(m => m.excluded).length;
 
     dashboard.renderEngagementBar("#analytics-chart-engagement", metrics, {
       topN: ui.topN, metric: ui.metric,
@@ -657,6 +663,30 @@
           renderOverview();
         });
       });
+
+      // "N skjult fra analyse"-indikator + Vis dem-knapp
+      let excludedInfo = barChart.querySelector(".analytics-excluded-info");
+      if (excludedInfo) excludedInfo.remove();
+      if (excludedCount > 0) {
+        const info = document.createElement("div");
+        info.className = "analytics-excluded-info";
+        info.innerHTML = `
+          <span class="muted small">🔍 <strong>${excludedCount}</strong> innlegg skjult fra analyse</span>
+          <button class="linkbtn" id="analytics-show-excluded">Vis skjulte</button>
+        `;
+        barChart.appendChild(info);
+        const showExcBtn = info.querySelector("#analytics-show-excluded");
+        if (showExcBtn) showExcBtn.addEventListener("click", () => {
+          ui.subTab = "metrics";
+          ui.metricsFilter = "all"; // sørg for å vise alle
+          activateSubTab("metrics");
+          // Scroll til excluded
+          setTimeout(() => {
+            const firstExcluded = document.querySelector(".metrics-row-excluded");
+            if (firstExcluded) firstExcluded.scrollIntoView({ behavior: "smooth", block: "center" });
+          }, 100);
+        });
+      }
 
       // Legg til "Vis mer" / "Vis færre"-knapp under SVG-en
       const allMatching = metrics.filter(m => (m[ui.metric] || 0) > 0).length;
@@ -1098,6 +1128,77 @@
     state = store.emptyState();
     renderShell();
     alert("Analytics-data slettet.");
+  }
+
+  /**
+   * Finn metrics med samme content (fingerprint) men ulike datoer/IDs.
+   * Vanlig årsak: samme post er sync-et fra Pipeline OG importert fra
+   * LinkedIn-CSV, eller importert to ganger. Lister gruppene og lar
+   * Michel slette den ene per par via en konkret knapp.
+   */
+  function findDuplicates() {
+    const node = document.getElementById("analytics-duplicates-result");
+    if (!node) return;
+    const groups = {};
+    state.postMetrics.forEach(m => {
+      if (!m.contentFingerprint) return;
+      const key = m.contentFingerprint;
+      (groups[key] || (groups[key] = [])).push(m);
+    });
+    const dupes = Object.entries(groups).filter(([, arr]) => arr.length > 1);
+    if (!dupes.length) {
+      node.innerHTML = '<div class="muted small">✓ Ingen duplikater funnet — alle metrics har unik content-fingerprint.</div>';
+      return;
+    }
+
+    const escapeHtml = s => String(s ?? "")
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    const fmt = iso => {
+      if (!iso) return "—";
+      const d = new Date(iso);
+      return d.toLocaleDateString("nb-NO", { day: "2-digit", month: "short", year: "2-digit" });
+    };
+
+    node.innerHTML = `
+      <div class="analytics-duplicates-header">
+        <strong>🔍 ${dupes.length} ${dupes.length === 1 ? "duplikat-gruppe" : "duplikat-grupper"} funnet</strong>
+        <p class="muted small">Hver gruppe har samme innhold men ulik dato/kilde. Behold den med ekte metrics — slett de tomme.</p>
+      </div>
+      ${dupes.map((grp, gi) => {
+        const arr = grp[1].slice().sort((a, b) => (b.engagements || 0) - (a.engagements || 0));
+        return `
+          <div class="analytics-duplicate-group">
+            <div class="muted small">Gruppe ${gi + 1} — ${arr.length} entries</div>
+            <ul>
+              ${arr.map(m => `
+                <li>
+                  <span class="muted small">${fmt(m.date)}</span>
+                  <span class="analytics-dup-content">${escapeHtml((m.content || "(uten tekst)").slice(0, 80))}</span>
+                  <span class="muted small">${m.engagements || 0} eng · ${m.source === "pipeline" ? "Pipeline" : "CSV"}</span>
+                  <button class="linkbtn danger" data-delete-id="${escapeHtml(m.id)}">Slett denne</button>
+                </li>
+              `).join("")}
+            </ul>
+          </div>
+        `;
+      }).join("")}
+    `;
+
+    node.querySelectorAll("[data-delete-id]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-delete-id");
+        const m = state.postMetrics.find(x => x.id === id);
+        if (!m) return;
+        if (!confirm(`Slett denne metric-raden?\n\nDato: ${m.date}\nEngagement: ${m.engagements || 0}\n\nKan ikke angres uten å re-importere.`)) return;
+        state.postMetrics = state.postMetrics.filter(x => x.id !== id);
+        const { store } = getStores();
+        store.save(state);
+        findDuplicates(); // re-render listen
+        renderInsights();
+        if (ui.subTab === "overview") renderOverview();
+      });
+    });
   }
 
   /**

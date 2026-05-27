@@ -110,18 +110,23 @@
         class: "analytics-axis-label",
       }, fmtNum(v)));
 
-      // Skjul-knapp (×) på slutten — toggle excluded for outlier-håndtering
-      // direkte fra Topp innlegg-charten uten å hoppe til metrics-tabellen
-      const skjulX = W - padR + 22;
-      const skjulY = y + barH / 2 + 4;
-      const skjulBtn = el("text", {
-        x: skjulX, y: skjulY,
+      // Skjul-knapp på slutten — toggle excluded for outlier-håndtering
+      // direkte fra Topp innlegg-charten. Sirkel-bakgrunn så den leses som
+      // en ekte klikkbar knapp, ikke bare et tegn.
+      const skjulX = W - padR + 28;
+      const skjulY = y + barH / 2;
+      const skjulGroup = el("g", { class: "analytics-bar-skjul", "data-skjul-id": m.id || "" });
+      skjulGroup.appendChild(el("circle", {
+        cx: skjulX, cy: skjulY, r: 11,
+        class: "analytics-bar-skjul-bg",
+      }));
+      skjulGroup.appendChild(el("text", {
+        x: skjulX, y: skjulY + 5,
         "text-anchor": "middle",
-        class: "analytics-bar-skjul",
-        "data-skjul-id": m.id || "",
-      }, "×");
-      skjulBtn.appendChild(el("title", {}, ["Skjul fra analyse (outlier)"]));
-      group.appendChild(skjulBtn);
+        class: "analytics-bar-skjul-x",
+      }, "×"));
+      skjulGroup.appendChild(el("title", {}, ["Skjul fra analyse (outlier) — kan reverseres i metrics-tabellen"]));
+      group.appendChild(skjulGroup);
 
       svg.appendChild(group);
     });

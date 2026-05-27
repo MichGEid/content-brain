@@ -1392,22 +1392,74 @@ textarea { resize: vertical; font-family: inherit; }
 .analytics-dot-clickable { cursor: pointer; transition: r 0.15s ease; }
 .analytics-dot-clickable:hover { r: 6.5; }
 
-.analytics-bar-skjul {
-  cursor: pointer;
-  fill: var(--text-muted, #9ca3af);
-  font-size: 18px;
-  font-weight: 600;
-  opacity: 0.5;
-  transition: opacity 0.12s ease, fill 0.12s ease;
+.analytics-bar-skjul { cursor: pointer; opacity: 0.8; transition: opacity 0.12s ease; }
+.analytics-bar-skjul:hover { opacity: 1; }
+.analytics-bar-skjul-bg {
+  fill: var(--bg-soft, #1f2937);
+  stroke: var(--border, #374151);
+  stroke-width: 1;
+  transition: fill 0.12s ease, stroke 0.12s ease;
 }
-.analytics-bar-group:hover .analytics-bar-skjul { opacity: 0.85; }
-.analytics-bar-skjul:hover { opacity: 1; fill: #d97706; }
+.analytics-bar-skjul:hover .analytics-bar-skjul-bg {
+  fill: rgba(217, 119, 6, 0.15);
+  stroke: #d97706;
+}
+.analytics-bar-skjul-x {
+  fill: var(--text-muted, #9ca3af);
+  font-size: 16px;
+  font-weight: 600;
+  pointer-events: none;
+  transition: fill 0.12s ease;
+}
+.analytics-bar-skjul:hover .analytics-bar-skjul-x {
+  fill: #d97706;
+}
 
 .analytics-show-more-row {
   display: flex;
   justify-content: center;
   padding: 0.6rem 0 0.2rem;
 }
+.analytics-excluded-info {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  justify-content: center;
+  padding: 0.5rem 0.7rem;
+  margin-top: 0.5rem;
+  background: rgba(217, 119, 6, 0.08);
+  border: 1px dashed rgba(217, 119, 6, 0.3);
+  border-radius: var(--radius);
+}
+.analytics-duplicates-result {
+  margin-top: 1rem;
+}
+.analytics-duplicates-header {
+  margin-bottom: 0.6rem;
+}
+.analytics-duplicate-group {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 0.6rem;
+  background: var(--bg-soft);
+}
+.analytics-duplicate-group ul {
+  list-style: none;
+  margin: 0.3rem 0 0;
+  padding: 0;
+}
+.analytics-duplicate-group li {
+  display: grid;
+  grid-template-columns: 90px 1fr 160px 120px;
+  gap: 0.6rem;
+  padding: 0.3rem 0;
+  align-items: center;
+  font-size: 0.85rem;
+  border-bottom: 1px solid var(--border);
+}
+.analytics-duplicate-group li:last-child { border-bottom: none; }
+.analytics-dup-content { color: var(--text-muted); }
 
 .analytics-bar.p1, .analytics-dot.p1, .analytics-pillar-fill.p1 { fill: var(--p1); background: var(--p1); }
 .analytics-bar.p2, .analytics-dot.p2, .analytics-pillar-fill.p2 { fill: var(--p2); background: var(--p2); }
