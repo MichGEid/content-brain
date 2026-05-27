@@ -304,6 +304,7 @@
               <ul id="analytics-data-summary"></ul>
 
               <div class="analytics-danger">
+                <button class="linkbtn" id="analytics-clear-demo" title="Fjerner kun metrics og connections som ble lagt til via 'Last inn demo-data'. Dine ekte poster blir igjen.">🧪 Slett bare demo-data</button>
                 <button class="linkbtn danger" id="analytics-reset">Slett all analytics-data</button>
               </div>
             </div>
@@ -369,6 +370,8 @@
     // Reset
     const resetBtn = document.getElementById("analytics-reset");
     if (resetBtn) resetBtn.addEventListener("click", resetAll);
+    const clearDemoBtn = document.getElementById("analytics-clear-demo");
+    if (clearDemoBtn) clearDemoBtn.addEventListener("click", clearDemoData);
 
     // Demo data
     const demoBtn = document.getElementById("analytics-demo-load");
@@ -1095,6 +1098,30 @@
     state = store.emptyState();
     renderShell();
     alert("Analytics-data slettet.");
+  }
+
+  /**
+   * Slett kun demo-data (metrics og connections med _demoPillar/_demo-flagg).
+   * Lar ekte importerte/synkede poster være i fred. Brukes når demo-data
+   * fra tidligere testing skaper duplikater i analyser.
+   */
+  function clearDemoData() {
+    const metricsBefore = state.postMetrics.length;
+    const connsBefore = state.connections.length;
+    const demoMetrics = state.postMetrics.filter(m => m._demoPillar !== undefined || m._demo === true).length;
+    const demoConns = state.connections.filter(c => c._demo === true).length;
+    if (demoMetrics === 0 && demoConns === 0) {
+      alert("Ingen demo-data funnet. Alt i analytics ser ut som ekte data (CSV-import eller Pipeline-sync).");
+      return;
+    }
+    if (!confirm(`Slett ${demoMetrics} demo-metrics og ${demoConns} demo-connections?\n\nEkte data (CSV-importert + Pipeline-sync) blir liggende.\nDette kan ikke angres uten å importere på nytt.`)) return;
+
+    state.postMetrics = state.postMetrics.filter(m => m._demoPillar === undefined && m._demo !== true);
+    state.connections = state.connections.filter(c => c._demo !== true);
+    const { store } = getStores();
+    store.save(state);
+    renderShell();
+    alert(`Demo-data slettet: ${metricsBefore - state.postMetrics.length} metrics + ${connsBefore - state.connections.length} connections fjernet. Ekte data uberørt.`);
   }
 
   // ---------- public API ----------
