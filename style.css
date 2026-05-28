@@ -1421,16 +1421,38 @@ textarea { resize: vertical; font-family: inherit; }
   padding: 0.6rem 0 0.2rem;
 }
 .analytics-excluded-info {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
-  justify-content: center;
   padding: 0.5rem 0.7rem;
   margin-top: 0.5rem;
   background: rgba(217, 119, 6, 0.08);
   border: 1px dashed rgba(217, 119, 6, 0.3);
   border-radius: var(--radius);
 }
+.analytics-excluded-info summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--text);
+  user-select: none;
+  list-style: none;
+}
+.analytics-excluded-info summary::-webkit-details-marker { display: none; }
+.analytics-excluded-info[open] summary { margin-bottom: 0.5rem; }
+.analytics-excluded-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.analytics-excluded-list li {
+  display: grid;
+  grid-template-columns: 1fr 80px 110px;
+  gap: 0.6rem;
+  padding: 0.3rem 0.2rem;
+  border-bottom: 1px solid var(--border);
+  align-items: center;
+  font-size: 0.85rem;
+}
+.analytics-excluded-list li:last-child { border-bottom: none; }
+.analytics-excluded-content { color: var(--text-muted); }
+.analytics-unexclude-btn { text-align: right; }
 .analytics-duplicates-result {
   margin-top: 1rem;
 }

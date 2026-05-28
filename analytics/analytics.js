@@ -661,30 +661,57 @@
           store.save(state);
           renderInsights();
           renderOverview();
+          // Også re-render metrics-tabellen (i bakgrunnen) så Skjul-checkboxen
+          // er checked når brukeren bytter dit
+          if (typeof renderMetricsTable === "function") {
+            try { renderMetricsTable(); } catch (_) {}
+          }
         });
       });
 
-      // "N skjult fra analyse"-indikator + Vis dem-knapp
+      // "N skjult fra analyse"-banner med inline-liste og Vis igjen-knapp per
       let excludedInfo = barChart.querySelector(".analytics-excluded-info");
       if (excludedInfo) excludedInfo.remove();
-      if (excludedCount > 0) {
-        const info = document.createElement("div");
+      const excludedList = fullList.filter(m => m.excluded);
+      if (excludedList.length > 0) {
+        const info = document.createElement("details");
         info.className = "analytics-excluded-info";
+        const escapeHtml = s => String(s ?? "")
+          .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+        const truncate = (s, n) => {
+          s = String(s || "").replace(/\s+/g, " ").trim();
+          return s.length > n ? s.slice(0, n - 1) + "…" : s;
+        };
         info.innerHTML = `
-          <span class="muted small">🔍 <strong>${excludedCount}</strong> innlegg skjult fra analyse</span>
-          <button class="linkbtn" id="analytics-show-excluded">Vis skjulte</button>
+          <summary>🔍 <strong>${excludedList.length}</strong> ${excludedList.length === 1 ? "innlegg" : "innlegg"} skjult fra analyse — klikk for å vise</summary>
+          <ul class="analytics-excluded-list">
+            ${excludedList.map(m => `
+              <li>
+                <span class="analytics-excluded-content">${escapeHtml(truncate(m.content || m.title || "(uten tekst)", 80))}</span>
+                <span class="muted small">${m.engagements || 0} eng</span>
+                <button class="linkbtn analytics-unexclude-btn" data-unexclude-id="${escapeHtml(m.id)}">↻ Vis igjen</button>
+              </li>
+            `).join("")}
+          </ul>
         `;
         barChart.appendChild(info);
-        const showExcBtn = info.querySelector("#analytics-show-excluded");
-        if (showExcBtn) showExcBtn.addEventListener("click", () => {
-          ui.subTab = "metrics";
-          ui.metricsFilter = "all"; // sørg for å vise alle
-          activateSubTab("metrics");
-          // Scroll til excluded
-          setTimeout(() => {
-            const firstExcluded = document.querySelector(".metrics-row-excluded");
-            if (firstExcluded) firstExcluded.scrollIntoView({ behavior: "smooth", block: "center" });
-          }, 100);
+        // Bind Vis igjen
+        info.querySelectorAll(".analytics-unexclude-btn").forEach(btn => {
+          btn.addEventListener("click", e => {
+            e.preventDefault();
+            const id = btn.getAttribute("data-unexclude-id");
+            const m = state.postMetrics.find(x => x.id === id);
+            if (!m) return;
+            m.excluded = false;
+            const { store } = getStores();
+            store.save(state);
+            renderInsights();
+            renderOverview();
+            if (typeof renderMetricsTable === "function") {
+              try { renderMetricsTable(); } catch (_) {}
+            }
+          });
         });
       }
 
@@ -878,11 +905,13 @@
         // Visuell dimming på raden
         const row = e.target.closest("tr");
         if (row) row.classList.toggle("metrics-row-excluded", metric.excluded);
-        // Re-render insights/charts så outliers utelates fra snitt
+        // Re-render insights/charts så outliers utelates fra snitt.
+        // Kall ALLE views uansett subTab så Overview-tabben er ferskt
+        // når brukeren bytter tilbake — DOM-en er hidden men oppdatert.
         renderInsights();
-        if (ui.subTab === "overview") renderOverview();
-        if (ui.subTab === "engagers") renderEngagers();
-        if (ui.subTab === "patterns") renderPatterns();
+        renderOverview();
+        renderEngagers();
+        renderPatterns();
       });
     });
   }
@@ -1140,9 +1169,22 @@
     const node = document.getElementById("analytics-duplicates-result");
     if (!node) return;
     const groups = {};
+    // Mer aggressiv match enn fingerprint alene: normaliser content til
+    // første 60 alpha-tegn etter cleanup. Fanger duplikater hvor fingerprint
+    // er ulik pga URL-er, hashtags, eller minimale tekst-endringer.
+    const normalizeForDedup = s => {
+      return String(s || "")
+        .toLowerCase()
+        .replace(/https?:\/\/\S+/g, "")
+        .replace(/[#@][\w-]+/g, "")
+        .replace(/[^a-zæøå0-9\s]/gi, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 60);
+    };
     state.postMetrics.forEach(m => {
-      if (!m.contentFingerprint) return;
-      const key = m.contentFingerprint;
+      const key = normalizeForDedup(m.content || m.title || "");
+      if (!key || key.length < 20) return; // ignorer for korte/tomme
       (groups[key] || (groups[key] = [])).push(m);
     });
     const dupes = Object.entries(groups).filter(([, arr]) => arr.length > 1);
