@@ -236,10 +236,19 @@
     clear(node);
 
     const metric = opts.metric || "engagements";
+    // Skill mellom poster som har data og poster som ikke har det (0 i alle metrics).
+    // Tomme poster skal IKKE drage snittet ned — bare poster med faktisk engagement
+    // teller i snitt-beregningen. Tomme vises i drilldown med "mangler tall"-markør.
     const buckets = { 1: [], 2: [], 3: [], 4: [], 0: [] };
+    const emptyBuckets = { 1: 0, 2: 0, 3: 0, 4: 0, 0: 0 };
     metrics.forEach(m => {
       const p = m.pillar || 0;
-      (buckets[p] || (buckets[p] = [])).push(m[metric] || 0);
+      const val = m[metric] || 0;
+      if (val > 0) {
+        (buckets[p] || (buckets[p] = [])).push(val);
+      } else {
+        emptyBuckets[p] = (emptyBuckets[p] || 0) + 1;
+      }
     });
 
     const labels = {
@@ -251,11 +260,12 @@
     };
 
     const stats = Object.entries(buckets)
-      .filter(([k]) => k !== "0" || buckets["0"].length > 0)
+      .filter(([k]) => k !== "0" || buckets["0"].length > 0 || emptyBuckets["0"] > 0)
       .map(([k, arr]) => ({
         pillar: Number(k),
         label: labels[k],
         count: arr.length,
+        emptyCount: emptyBuckets[k] || 0,
         avg: arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0,
         total: arr.reduce((a, b) => a + b, 0),
       }))
@@ -267,26 +277,32 @@
     }
 
     const max = Math.max(1, ...stats.map(s => s.avg));
-    const html = stats.map(s => `
-      <details class="analytics-pillar-row analytics-pillar-row-clickable" data-pillar="${s.pillar}">
-        <summary>
-          <div class="analytics-pillar-label">
-            <span class="dot p${s.pillar || "-"}"></span> ${escapeHtml(s.label)}
-            <span class="muted small">${s.count} innlegg</span>
+    const html = stats.map(s => {
+      const emptyNote = s.emptyCount > 0
+        ? `<span class="muted small" title="${s.emptyCount} ${s.emptyCount === 1 ? "innlegg uten data" : "innlegg uten data"} — utelatt fra snitt">· ${s.emptyCount} mangler tall</span>`
+        : "";
+      return `
+        <details class="analytics-pillar-row analytics-pillar-row-clickable" data-pillar="${s.pillar}">
+          <summary>
+            <div class="analytics-pillar-label">
+              <span class="dot p${s.pillar || "-"}"></span> ${escapeHtml(s.label)}
+              <span class="muted small">${s.count} ${s.count === 1 ? "innlegg" : "innlegg"}</span>
+              ${emptyNote}
+            </div>
+            <div class="analytics-pillar-bar">
+              <div class="analytics-pillar-fill p${s.pillar || "-"}" style="width:${(s.avg / max) * 100}%"></div>
+            </div>
+            <div class="analytics-pillar-val">
+              <strong>${fmtNum(Math.round(s.avg))}</strong>
+              <span class="muted small">snitt ${metric}</span>
+            </div>
+          </summary>
+          <div class="analytics-pillar-drilldown">
+            ${renderPillarPostList(metrics.filter(m => (m.pillar || 0) === s.pillar), metric)}
           </div>
-          <div class="analytics-pillar-bar">
-            <div class="analytics-pillar-fill p${s.pillar || "-"}" style="width:${(s.avg / max) * 100}%"></div>
-          </div>
-          <div class="analytics-pillar-val">
-            <strong>${fmtNum(Math.round(s.avg))}</strong>
-            <span class="muted small">snitt ${metric}</span>
-          </div>
-        </summary>
-        <div class="analytics-pillar-drilldown">
-          ${renderPillarPostList(metrics.filter(m => (m.pillar || 0) === s.pillar), metric)}
-        </div>
-      </details>
-    `).join("");
+        </details>
+      `;
+    }).join("");
     node.innerHTML = html;
 
     // Bind klikk på drill-down poster
@@ -308,13 +324,21 @@
     }
     const sorted = metrics.slice().sort((a, b) => (b[metric] || 0) - (a[metric] || 0));
     return `<ul class="analytics-pillar-drilldown-list">
-      ${sorted.map(m => `
-        <li data-drilldown-id="${escapeHtml(m.id || "")}">
-          <span class="analytics-drilldown-date muted small">${m.date ? fmtDate(m.date) : "—"}</span>
-          <span class="analytics-drilldown-content">${escapeHtml(truncate(m.content || m.title || "(uten tekst)", 80))}</span>
-          <span class="analytics-drilldown-num"><strong>${fmtNum(m[metric] || 0)}</strong></span>
-        </li>
-      `).join("")}
+      ${sorted.map(m => {
+        const val = m[metric] || 0;
+        const isEmpty = val === 0;
+        return `
+          <li data-drilldown-id="${escapeHtml(m.id || "")}" class="${isEmpty ? "analytics-drilldown-empty" : ""}">
+            <span class="analytics-drilldown-date muted small">${m.date ? fmtDate(m.date) : "—"}</span>
+            <span class="analytics-drilldown-content">${escapeHtml(truncate(m.content || m.title || "(uten tekst)", 80))}</span>
+            <span class="analytics-drilldown-num">
+              ${isEmpty
+                ? `<span class="muted small" title="Mangler tall — utelatt fra snitt">⏳ mangler</span>`
+                : `<strong>${fmtNum(val)}</strong>`}
+            </span>
+          </li>
+        `;
+      }).join("")}
     </ul>`;
   }
 

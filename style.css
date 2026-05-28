@@ -1554,6 +1554,8 @@ textarea { resize: vertical; font-family: inherit; }
 .analytics-pillar-drilldown-list li:hover { background: var(--bg); }
 .analytics-drilldown-num { text-align: right; color: var(--text); }
 .analytics-drilldown-content { color: var(--text-muted); }
+.analytics-drilldown-empty { opacity: 0.55; }
+.analytics-drilldown-empty .analytics-drilldown-content { font-style: italic; }
 
 /* Heatmap */
 .analytics-heatmap {

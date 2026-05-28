@@ -1133,10 +1133,15 @@
 
     if (!recent.length) return null;
 
-    const overall = recent.reduce((sum, m) => sum + (m[metric] || 0), 0) / recent.length;
+    // Tomme poster (0 engagement) skal ikke drage snittet ned — beregn
+    // bare på poster med faktiske tall.
+    const withData = recent.filter(m => (m[metric] || 0) > 0);
+    const overall = withData.length
+      ? withData.reduce((sum, m) => sum + (m[metric] || 0), 0) / withData.length
+      : 0;
     const byPillar = {};
     [1, 2, 3, 4].forEach(p => {
-      const subset = recent.filter(m => m.pillar === p);
+      const subset = withData.filter(m => m.pillar === p);
       const avg = subset.length ? subset.reduce((s, m) => s + (m[metric] || 0), 0) / subset.length : 0;
       byPillar[p] = {
         pillar: p,
@@ -1145,7 +1150,7 @@
         vsAll: overall > 0 ? (avg - overall) / overall : 0,
       };
     });
-    return { overall: Math.round(overall), byPillar, windowDays: sinceDays, totalPosts: recent.length };
+    return { overall: Math.round(overall), byPillar, windowDays: sinceDays, totalPosts: withData.length };
   }
 
   // ---------- reset ----------
