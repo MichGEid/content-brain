@@ -1,5 +1,58 @@
 # Changelog
 
+## v0.16 (2026-05-23) — Analytics-polishbølge
+
+Etter at Michel begynte å bruke Analytics i praksis dukket det opp en
+rekke konkrete friksjoner. Denne versjonen er en samling av seks
+påfølgende fikser, alt levert på samme dag basert på direkte
+testtilbakemelding. Ingen ny arkitektur — bare friksjon fjernet og
+analyse-aritmetikk gjort ærligere.
+
+### Drill-down + klikkbare elementer (v0.16.0)
+
+- Per pilar (snitt) er nå collapsible per rad — klikk for å se postene
+  bak hver pilar, sortert på engagement
+- Trend-over-tid sine rundinger er nå klikkbare og åpner post-modal
+- Topp innlegg har Vis mer-knapp som bumper topN med 10 om gangen
+- Metrics-tabellen har 7 sorteringsvalg (la til visn/likes/komm/shares)
+
+### Skjul fra analyse + Vis igjen (v0.16.1, v0.16.2, v0.16.3)
+
+- `excluded`-flag på postMetric — filtreres ut av alle aggregeringer
+- Skjul-checkbox per rad i metrics-tabellen
+- × Skjul-knapp per bar i Topp innlegg (sirkel-bakgrunn med hover-state)
+- "🔍 N skjult fra analyse"-collapsible under chart med inline liste +
+  `↻ Vis igjen`-knapp per ekskludert post
+- renderOverview/renderEngagers/renderPatterns kalles uansett aktiv
+  subTab så DOM-er er ferske ved tab-bytte
+
+### Duplikat-detektor (v0.16.1, forbedret v0.16.3)
+
+- Finn duplikater-knapp i Import-tab → Lagret data
+- Bruker normalisert content-prefix (60 alpha-tegn etter URL/hashtag/
+  tegnsetting-strip) istedenfor bare fingerprint — fanger duplikater
+  fingerprint-match bommer på
+- Lister grupper med dato, engagement, kilde + Slett denne-knapp per
+
+### 0-engagement-håndtering (v0.16.4)
+
+- Pillar-snitt regnes nå bare over poster med engagement > 0
+- Header viser "X innlegg · Y mangler tall"
+- Drilldown viser fortsatt alle, men tomme er dimmet + "⏳ mangler"
+- getPillarPerformance (Ghostwriter-hint) bruker samme logikk
+
+### Småfikser
+
+- Mangler-tall-badge ('⏳' istedenfor '📌') skjules når tall er fylt inn
+- Vis detaljer-modal henter full body fra Pipeline istedenfor avkortet
+  metric.content
+- Slett bare demo-data-knapp (fjerner _demoPillar-merket data)
+- Layout-bug i Per pilar-rader fikset (kolonne-bredde + nowrap-spans)
+
+### Bundle og tester
+
+Bundle 470 KB (var 447 KB i v0.15). 161 tester (uendret).
+
 ## v0.15 (2026-05-22) — ↻ Annet anker per kort
 
 Per-suggestion-card regenerate. Brukeren liker artikkel + pillar-valg,

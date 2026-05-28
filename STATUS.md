@@ -1,6 +1,6 @@
 # Status — Content Brain + Ghostwriter + Analytics
 
-Sist oppdatert 2026-05-22. Versjon: v0.15 med Inspirasjon ↻ Annet anker per suggestion-card.
+Sist oppdatert 2026-05-23. Versjon: v0.16 med Analytics-polishbølge (drill-down, klikkbare elementer, Skjul/Vis igjen, duplikat-detektor, 0-engagement-håndtering).
 
 ## Helhetlig status
 
@@ -54,6 +54,9 @@ Sist oppdatert 2026-05-22. Versjon: v0.15 med Inspirasjon ↻ Annet anker per su
 │  Phase 15   ↻ Annet anker per kort:        ✅ Live (2026-05-22)│
 │             buildRegenerationPrompt med                      │
 │             previousAngles-eksklusjon                        │
+│  Phase 16   Analytics-polish: drilldown,   ✅ Live (2026-05-23)│
+│             Skjul-flyten, dup-detektor,                      │
+│             0-engagement-håndtering, sortering               │
 │  Tests      161 unit-tester (32 GW +     ✅ Alle passerer   │
 │             60 Analytics + 69 Inspirer)                      │
 └────────────────────────────────────────────────────────────┘
@@ -216,7 +219,74 @@ content-brain/
 └── STATUS.md                   (denne)
 ```
 
-Bundle: ~447 KB (kryptert via StaticCrypt før deploy).
+Bundle: ~470 KB (kryptert via StaticCrypt før deploy).
+
+## Phase 16 — Analytics-polish (2026-05-23, v0.16.0 → v0.16.5)
+
+En bølge av direkte-fra-bruk forbedringer på Analytics-modulen etter at
+Michel begynte å bruke den i praksis. Ingen ny arkitektur — bare friksjon
+fjernet og analyse-aritmetikk gjort ærligere.
+
+### v0.16 Drill-down + klikkbare elementer
+
+- **Per pilar (snitt)** er nå `<details>`-collapsible per rad. Klikk på
+  pilaren → sortert liste over alle poster i den pilaren med Vis-detaljer-
+  hopp.
+- **Trend over tid**: hver runding er klikkbar (cursor:pointer, hover-
+  growth, SVG-tooltip). Klikk → samme post-modal som Vis detaljer-knappen.
+- **Topp innlegg**: en × per bar (sirkel-bakgrunn + hover-state) toggler
+  excluded direkte. Vis mer-knapp under chart bumper topN med 10 om gangen.
+- **Metrics-tabellen**: sortering utvidet fra 3 til 7 valg (visn/likes/
+  komm/shares lagt til ved siden av eksisterende dato/engasjement).
+
+### v0.16 Skjul-fra-Analytics + Vis igjen
+
+- `excluded: boolean`-flag på postMetric. Excluded poster filtreres ut
+  av Topp innlegg, Trend, Pilar-snitt, Top performers, getPillarPerformance.
+- Skjul-checkbox per rad i metrics-tabellen. Visuell dimming (opacity 0.4)
+  på ekskluderte rader.
+- "🔍 N skjult fra analyse"-collapsible under Topp innlegg med inline
+  liste av de ekskluderte. Hver har en `↻ Vis igjen`-knapp direkte i
+  Overview — ingen tab-bytte nødvendig.
+
+### v0.16 Duplikat-detektor
+
+- `🔍 Finn mulige duplikater`-knapp i Import-tab → Lagret data.
+- Detekterer poster med samme normaliserte content-prefix (60 alpha-tegn
+  etter lowercase, URL/hashtag/tegnsetting-stripping). Fanger duplikater
+  som ren fingerprint-match ville bommet på pga URL-er eller minimale
+  tekst-endringer.
+- Lister gruppene med dato, engagement, kilde (Pipeline/CSV) per entry +
+  "Slett denne"-knapp så Michel kan beholde den med ekte tall.
+
+### v0.16 0-engagement-håndtering
+
+- Pillar-snitt beregnes nå BARE over poster med engagement > 0. Tomme
+  poster (alle metrics = 0) drar ikke snittet ned lenger.
+- Header viser "X innlegg · Y mangler tall" når noen er tomme.
+- Drilldown viser fortsatt alle, men de tomme er dimmet + italic + viser
+  "⏳ mangler" istedenfor 0.
+- `getPillarPerformance` (Ghostwriter-hint) bruker samme logikk så
+  pilar-anbefalinger ikke er skjevvridd av poster uten data.
+
+### v0.16 Småfikser underveis
+
+- Vis detaljer-modal: hentet full body fra Pipeline-post via linkedPostId
+  så lange poster ikke kuttet på 280 tegn lenger. Sync-funksjonen lagrer
+  også fullt body nå.
+- 'Mangler tall'-badge (tidligere '📌 Pipeline') skjules nå når tall er
+  fylt inn. Oransje farge matcher 'mangler URL'-pillen i Pipeline.
+- '🧪 Slett bare demo-data'-knapp som fjerner kun metrics med
+  `_demoPillar`-flag, lar ekte data være i fred.
+- Layout-bug i Per pilar-rader (200px-kolonne for smal) fikset: grid-
+  template-columns er nå minmax(280px, 320px) og pillar-navn/count er
+  nowrap-spans.
+- renderOverview/renderEngagers/renderPatterns kalles nå uansett aktiv
+  subTab fra Skjul-handlers så DOM-er er ferske ved tab-bytte.
+
+### Bundle og tester
+
+161 unit-tester (uendret fra v0.15). Bundle 470 KB (var 447 KB i v0.15).
 
 ## Phase 15 — ↻ Annet anker per kort (2026-05-22)
 
