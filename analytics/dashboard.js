@@ -278,16 +278,16 @@
 
     const max = Math.max(1, ...stats.map(s => s.avg));
     const html = stats.map(s => {
-      const emptyNote = s.emptyCount > 0
-        ? `<span class="muted small" title="${s.emptyCount} ${s.emptyCount === 1 ? "innlegg uten data" : "innlegg uten data"} — utelatt fra snitt">· ${s.emptyCount} mangler tall</span>`
-        : "";
+      const countSuffix = s.emptyCount > 0
+        ? `<span class="analytics-pillar-count muted small" title="${s.emptyCount} ${s.emptyCount === 1 ? "innlegg uten data" : "innlegg uten data"} — utelatt fra snitt">${s.count} innlegg · ${s.emptyCount} mangler tall</span>`
+        : `<span class="analytics-pillar-count muted small">${s.count} innlegg</span>`;
       return `
         <details class="analytics-pillar-row analytics-pillar-row-clickable" data-pillar="${s.pillar}">
           <summary>
             <div class="analytics-pillar-label">
-              <span class="dot p${s.pillar || "-"}"></span> ${escapeHtml(s.label)}
-              <span class="muted small">${s.count} ${s.count === 1 ? "innlegg" : "innlegg"}</span>
-              ${emptyNote}
+              <span class="dot p${s.pillar || "-"}"></span>
+              <span class="analytics-pillar-name">${escapeHtml(s.label)}</span>
+              ${countSuffix}
             </div>
             <div class="analytics-pillar-bar">
               <div class="analytics-pillar-fill p${s.pillar || "-"}" style="width:${(s.avg / max) * 100}%"></div>

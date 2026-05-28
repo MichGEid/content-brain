@@ -1493,14 +1493,26 @@ textarea { resize: vertical; font-family: inherit; }
 /* Pillar breakdown rows */
 .analytics-pillar-row {
   display: grid;
-  grid-template-columns: 200px 1fr 140px;
+  grid-template-columns: minmax(280px, 320px) 1fr 140px;
   gap: 0.75rem;
   align-items: center;
   padding: 0.4rem 0;
 }
 .analytics-pillar-label {
-  display: flex; align-items: center; gap: 0.4rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem 0.5rem;
+  flex-wrap: wrap;
   font-size: 0.9rem;
+  line-height: 1.3;
+  min-width: 0;
+}
+.analytics-pillar-name {
+  white-space: nowrap;
+  font-weight: 500;
+}
+.analytics-pillar-count {
+  white-space: nowrap;
 }
 .analytics-pillar-bar {
   height: 18px;
@@ -1523,13 +1535,14 @@ textarea { resize: vertical; font-family: inherit; }
 .analytics-pillar-row-clickable[open] { background: var(--bg-soft); }
 .analytics-pillar-row-clickable summary {
   display: grid;
-  grid-template-columns: 200px 1fr 140px;
+  grid-template-columns: minmax(280px, 320px) 1fr 140px;
   gap: 0.75rem;
   align-items: center;
-  padding: 0.4rem 0.6rem;
+  padding: 0.5rem 0.6rem;
   cursor: pointer;
   list-style: none;
   border-radius: var(--radius);
+  min-height: 2.2rem;
 }
 .analytics-pillar-row-clickable summary::-webkit-details-marker { display: none; }
 .analytics-pillar-row-clickable summary:hover { background: var(--bg-soft); }
