@@ -169,18 +169,21 @@
         <p class="muted">Ett innlegg i uken. Pilar-rotasjon 1 → 2 → 3 → 4.</p>
       </div>
 
-      <div class="calendar-controls">
-        <label>
-          <span>Denne ukens pilar</span>
-          <select id="rotation-anchor">
-            <option value="1">1 · Connective leadership</option>
-            <option value="2">2 · Familie & hockey</option>
-            <option value="3">3 · Bygger & lærer</option>
-            <option value="4">4 · Krysspollinering</option>
-          </select>
-        </label>
-        <span class="muted small">Endringer lagres automatisk</span>
-      </div>
+      <details class="calendar-rotation-settings">
+        <summary>⚙ Rotasjons-innstillinger</summary>
+        <div class="calendar-controls">
+          <label>
+            <span>Denne ukens pilar (rotasjons-anker)</span>
+            <select id="rotation-anchor">
+              <option value="1">1 · Connective leadership</option>
+              <option value="2">2 · Familie & hockey</option>
+              <option value="3">3 · Bygger & lærer</option>
+              <option value="4">4 · Krysspollinering</option>
+            </select>
+          </label>
+          <span class="muted small">Settes typisk én gang. Bestemmer rotasjons-syklusen fremover. Endringer lagres automatisk.</span>
+        </div>
+      </details>
 
       <div class="filters">
         <div class="filter-group">

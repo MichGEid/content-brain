@@ -366,6 +366,27 @@ textarea { resize: vertical; font-family: inherit; }
   margin-top: 0.5rem;
 }
 
+/* Kollapsible rotasjons-innstillinger på Kalender — set once, hide */
+.calendar-rotation-settings {
+  margin-bottom: 1rem;
+  padding: 0.5rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-soft);
+}
+.calendar-rotation-settings summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  user-select: none;
+  list-style: none;
+}
+.calendar-rotation-settings summary::-webkit-details-marker { display: none; }
+.calendar-rotation-settings[open] summary {
+  margin-bottom: 0.6rem;
+  color: var(--text);
+}
+
 /* Påminnelses-banner i Pipeline når posts skal publiseres innen 2 dager */
 .pipeline-reminder-banner {
   display: flex;
