@@ -361,6 +361,50 @@ textarea { resize: vertical; font-family: inherit; }
   color: var(--text);
 }
 
+/* Verktøy-knapper i Pipeline-header */
+.pipeline-tools {
+  margin-top: 0.5rem;
+}
+
+/* Påminnelses-banner i Pipeline når posts skal publiseres innen 2 dager */
+.pipeline-reminder-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.7rem 0.95rem;
+  margin-bottom: 1rem;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: var(--radius);
+  font-size: 0.92rem;
+}
+.pipeline-reminder-icon { font-size: 1.2rem; }
+.pipeline-reminder-text { flex: 1; }
+.pipeline-reminder-text em { font-style: normal; font-weight: 500; }
+.pipeline-reminder-dismiss {
+  font-size: 1.1rem;
+  padding: 0 0.4rem;
+  color: var(--text-muted);
+}
+
+/* Planlagt-pille på Pipeline-kort (scheduledFor satt) */
+.card-scheduled-pill {
+  font-size: 0.72rem;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, 0.12);
+  color: #6366f1;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  cursor: help;
+  white-space: nowrap;
+}
+.card-scheduled-pill.urgent {
+  background: rgba(217, 119, 6, 0.15);
+  color: #d97706;
+  border-color: rgba(217, 119, 6, 0.4);
+  font-weight: 500;
+}
+
 /* Mangler-URL-varsel på Pipeline-kort (published uten linkedinUrl) */
 .card-warning-pill {
   font-size: 0.72rem;

@@ -106,7 +106,13 @@
       <div class="panel-head">
         <h2>Pipeline</h2>
         <p class="muted">Fra idé til klar-til-publisering.</p>
+        <div class="pipeline-tools">
+          <button class="linkbtn" id="export-ical" title="Last ned planlagte poster som .ics-fil og importér til Google Calendar for e-post-påminnelser">📅 Eksporter til Kalender (.ics)</button>
+        </div>
       </div>
+
+      <!-- Påminnelses-banner for kommende publiseringer (rendres dynamisk) -->
+      <div id="pipeline-reminder-banner" class="pipeline-reminder-banner" hidden></div>
 
       <div class="filters">
         <div class="filter-group">
@@ -174,6 +180,19 @@
           </select>
         </label>
         <span class="muted small">Endringer lagres automatisk</span>
+      </div>
+
+      <div class="filters">
+        <div class="filter-group">
+          <label>Pilar</label>
+          <div class="chips" id="calendar-pillar-filter">
+            <button class="chip active" data-pillar="all">Alle</button>
+            <button class="chip" data-pillar="1"><span class="dot p1"></span>1</button>
+            <button class="chip" data-pillar="2"><span class="dot p2"></span>2</button>
+            <button class="chip" data-pillar="3"><span class="dot p3"></span>3</button>
+            <button class="chip" data-pillar="4"><span class="dot p4"></span>4</button>
+          </div>
+        </div>
       </div>
 
       <ul class="calendar-list" id="calendar-list"></ul>

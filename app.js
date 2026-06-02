@@ -71,6 +71,16 @@
       .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
+  function daysFromNow(iso) {
+    if (!iso) return null;
+    const t = new Date(iso + "T00:00:00").getTime();
+    if (isNaN(t)) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const diffMs = t - today.getTime();
+    return Math.round(diffMs / 86400000);
+  }
+
   function fmtDate(iso) {
     if (!iso) return "";
     const d = new Date(iso);
@@ -280,11 +290,63 @@
     renderPipeline();
   });
 
+  /**
+   * Sjekk planlagte poster og vis banner hvis noen skal publiseres
+   * innen 2 dager. Banneret er klikkbar — scroller til posten.
+   */
+  function renderReminderBanner() {
+    const banner = $("#pipeline-reminder-banner");
+    if (!banner) return;
+    const upcoming = state.posts
+      .filter(p => p.scheduledFor && (p.status === "ready" || p.status === "scheduled"))
+      .map(p => ({ ...p, daysUntil: daysFromNow(p.scheduledFor) }))
+      .filter(p => p.daysUntil !== null && p.daysUntil >= 0 && p.daysUntil <= 2)
+      .sort((a, b) => a.daysUntil - b.daysUntil);
+
+    if (!upcoming.length) {
+      banner.hidden = true;
+      banner.innerHTML = "";
+      return;
+    }
+    const first = upcoming[0];
+    const whenText = first.daysUntil === 0 ? "i dag" : first.daysUntil === 1 ? "i morgen" : `om ${first.daysUntil} dager`;
+    const extra = upcoming.length > 1 ? ` (+ ${upcoming.length - 1} til)` : "";
+    banner.hidden = false;
+    banner.innerHTML = `
+      <span class="pipeline-reminder-icon">📅</span>
+      <span class="pipeline-reminder-text">
+        <strong>${upcoming.length === 1 ? "1 innlegg" : `${upcoming.length} innlegg`}</strong>
+        klar for publisering snart: <em>${escapeHtml(first.title)}</em>
+        — planlagt ${whenText}${extra}
+      </span>
+      <button class="linkbtn pipeline-reminder-jump" data-jump-id="${first.id}">Vis →</button>
+      <button class="linkbtn pipeline-reminder-dismiss" title="Skjul">×</button>
+    `;
+    const jumpBtn = banner.querySelector(".pipeline-reminder-jump");
+    if (jumpBtn) jumpBtn.addEventListener("click", () => {
+      const card = $(`.card[data-id="${first.id}"]`);
+      if (card) {
+        card.scrollIntoView({ behavior: "smooth", block: "center" });
+        card.style.outline = "2px solid #6366f1";
+        setTimeout(() => { card.style.outline = ""; }, 2000);
+      }
+    });
+    const dismissBtn = banner.querySelector(".pipeline-reminder-dismiss");
+    if (dismissBtn) dismissBtn.addEventListener("click", () => { banner.hidden = true; });
+  }
+
   function renderPipeline() {
-    const lanes = ["idea", "draft", "ready"];
-    lanes.forEach(status => {
+    renderReminderBanner();
+    // Lane "ready" inkluderer både ready og scheduled — slik at planlagte
+    // poster blir i Klar-kolonnen istedenfor å forsvinne til Kalender.
+    const laneStatuses = {
+      idea: ["idea"],
+      draft: ["draft"],
+      ready: ["ready", "scheduled"],
+    };
+    Object.entries(laneStatuses).forEach(([lane, statuses]) => {
       const items = state.posts.filter(p => {
-        if (p.status !== status) return false;
+        if (!statuses.includes(p.status)) return false;
         if (pipelinePillar !== "all" && String(p.pillar) !== pipelinePillar) return false;
         if (pipelineSearch) {
           const hay = (p.title + " " + p.body + " " + (p.notes || "")).toLowerCase();
@@ -292,19 +354,28 @@
         }
         return true;
       }).sort((a, b) => {
+        // I Klar-lane: scheduled-poster først (tidligst dato øverst),
+        // så ready-poster (etter sortIndex/capturedAt som før)
+        if (lane === "ready") {
+          const aSched = a.scheduledFor || "";
+          const bSched = b.scheduledFor || "";
+          if (aSched && !bSched) return -1;
+          if (!aSched && bSched) return 1;
+          if (aSched && bSched) return aSched.localeCompare(bSched);
+        }
         const ai = typeof a.sortIndex === "number" ? a.sortIndex : Number.MAX_SAFE_INTEGER;
         const bi = typeof b.sortIndex === "number" ? b.sortIndex : Number.MAX_SAFE_INTEGER;
         if (ai !== bi) return ai - bi;
         return (b.capturedAt || "").localeCompare(a.capturedAt || "");
       });
 
-      const lane = $("#lane-" + status);
-      $("#count-" + status).textContent = items.length;
-      lane.innerHTML = items.length
+      const laneEl = $("#lane-" + lane);
+      $("#count-" + lane).textContent = items.length;
+      laneEl.innerHTML = items.length
         ? items.map(p => renderCard(p, { showReorder: true })).join("")
         : `<li class="empty">Tom</li>`;
-      bindCardClicks(lane);
-      wireLaneDragAndDrop(lane, status);
+      bindCardClicks(laneEl);
+      wireLaneDragAndDrop(laneEl, lane);
     });
   }
 
@@ -312,7 +383,12 @@
     const { showReorder = false } = opts;
     const meta = [];
     if (p.publishedAt)  meta.push(`Publisert ${fmtDate(p.publishedAt)}`);
-    if (p.scheduledFor) meta.push(`Planlagt ${fmtDate(p.scheduledFor)}`);
+    if (p.scheduledFor) {
+      // Tydeligere visning av planlagt-dato: pille med 📅 + "Planlagt 4. juni"
+      const daysUntil = daysFromNow(p.scheduledFor);
+      const urgent = daysUntil !== null && daysUntil <= 2 && daysUntil >= 0;
+      meta.push(`<span class="card-scheduled-pill ${urgent ? "urgent" : ""}" title="Planlagt publisering">📅 ${fmtDate(p.scheduledFor)}${daysUntil !== null && daysUntil >= 0 && daysUntil <= 7 ? ` (${daysUntil === 0 ? "i dag" : daysUntil === 1 ? "i morgen" : `om ${daysUntil} dager`})` : ""}</span>`);
+    }
     if (p.source)       meta.push(`<span title="${escapeHtml(p.source)}">kilde</span>`);
     if (p.linkedinUrl)  meta.push(`<a href="${escapeHtml(p.linkedinUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">LinkedIn ↗</a>`);
 
@@ -512,6 +588,16 @@
     renderCalendar();
   });
 
+  // Pilar-filter på Kalender (mirror av Pipeline-chips)
+  let calendarPillar = "all";
+  $$("#calendar-pillar-filter .chip").forEach(c => {
+    c.addEventListener("click", () => {
+      calendarPillar = c.dataset.pillar;
+      $$("#calendar-pillar-filter .chip").forEach(x => x.classList.toggle("active", x === c));
+      renderCalendar();
+    });
+  });
+
   function renderCalendar() {
     $("#rotation-anchor").value = String(state.meta.rotationAnchor || 1);
 
@@ -523,6 +609,9 @@
       const weekStart = addDays(startWeek, i * 7);
       const weekEnd   = addDays(weekStart, 6);
       const pillar    = pillarForWeek(weekStart);
+
+      // Pilar-filter: hopp over uker som ikke matcher valgt pilar
+      if (calendarPillar !== "all" && String(pillar) !== calendarPillar) continue;
 
       // any posts scheduled this week?
       const scheduled = state.posts.filter(p =>
@@ -683,7 +772,9 @@
 
     // implicit status nudges
     if (p.publishedAt && p.status !== "published") p.status = "published";
-    if (p.scheduledFor && p.status !== "published" && p.status !== "scheduled") p.status = "scheduled";
+    // Merknad: tidligere flippet vi til "scheduled" når scheduledFor ble satt,
+    // men det fjernet posten fra Klar-kolonnen. Nå beholder vi status og
+    // viser planlagte poster sortert øverst i Klar-lane (Phase 17).
 
     // Hvis status endret seg på en eksisterende post, re-tildel sortIndex
     // slik at posten havner på toppen av ny lane (matcher intuisjonen
@@ -713,6 +804,85 @@
   }
 
   // ----------------------------- IMPORT/EXPORT/RESET -----------------------------
+
+  // iCal-eksport: genererer .ics-fil med planlagte poster.
+  // Brukeren importerer til Google Calendar for å få e-post-påminnelser dagen før.
+  function generateIcalContent() {
+    const scheduled = state.posts.filter(p =>
+      p.scheduledFor && (p.status === "ready" || p.status === "scheduled")
+    );
+    const pad = n => String(n).padStart(2, "0");
+    const fmtIcalDate = isoDate => isoDate.replace(/-/g, ""); // YYYYMMDD
+    const nowStamp = (() => {
+      const d = new Date();
+      return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`;
+    })();
+    const escape = s => String(s || "")
+      .replace(/\\/g, "\\\\")
+      .replace(/;/g, "\\;")
+      .replace(/,/g, "\\,")
+      .replace(/\n/g, "\\n");
+    const pillarLabel = p => p && PILLARS[p] ? PILLARS[p].label : "—";
+
+    const events = scheduled.map(p => {
+      const dateOnly = String(p.scheduledFor).slice(0, 10);
+      const dtStart = fmtIcalDate(dateOnly);
+      const next = new Date(dateOnly + "T00:00:00");
+      next.setDate(next.getDate() + 1);
+      const dtEnd = `${next.getFullYear()}${pad(next.getMonth() + 1)}${pad(next.getDate())}`;
+      const summary = `📝 ${p.title || "(uten tittel)"}`;
+      const description = [
+        `Pilar: ${pillarLabel(p.pillar)}`,
+        "",
+        p.body || "",
+        "",
+        "— fra Content Brain",
+      ].join("\n");
+      return [
+        "BEGIN:VEVENT",
+        `UID:content-brain-${p.id}@michgeid.github.io`,
+        `DTSTAMP:${nowStamp}`,
+        `DTSTART;VALUE=DATE:${dtStart}`,
+        `DTEND;VALUE=DATE:${dtEnd}`,
+        `SUMMARY:${escape(summary)}`,
+        `DESCRIPTION:${escape(description)}`,
+        "BEGIN:VALARM",
+        "TRIGGER:-P1D",
+        "ACTION:DISPLAY",
+        `DESCRIPTION:${escape(summary)}`,
+        "END:VALARM",
+        "END:VEVENT",
+      ].join("\r\n");
+    });
+    return [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//Content Brain//Pipeline Schedule//NB",
+      "CALSCALE:GREGORIAN",
+      "METHOD:PUBLISH",
+      ...events,
+      "END:VCALENDAR",
+    ].join("\r\n");
+  }
+
+  $("#export-ical").addEventListener("click", () => {
+    const scheduled = state.posts.filter(p =>
+      p.scheduledFor && (p.status === "ready" || p.status === "scheduled")
+    );
+    if (!scheduled.length) {
+      alert("Ingen planlagte innlegg å eksportere. Sett en dato i 'Planlagt for'-feltet på et innlegg først.");
+      return;
+    }
+    const ics = generateIcalContent();
+    const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `content-brain-schedule-${new Date().toISOString().slice(0,10)}.ics`;
+    a.click();
+    URL.revokeObjectURL(url);
+    alert(`📅 Eksporterte ${scheduled.length} ${scheduled.length === 1 ? "innlegg" : "innlegg"}.\n\nNeste steg:\n1. Åpne Google Calendar\n2. Innstillinger → Importer & eksporter → Importér\n3. Velg den nedlastede .ics-filen\n\nKalenderen vil sende deg påminnelse 1 dag før hver publisering.`);
+  });
 
   $("#export-json").addEventListener("click", () => {
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
