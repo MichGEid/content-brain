@@ -754,6 +754,15 @@
   $("#modal-cancel").addEventListener("click", closeEdit);
   modal.addEventListener("click", e => { if (e.target === modal) closeEdit(); });
 
+  // Reset-knapper for dato-felt — native HTML5 date-input mangler kjapt
+  // tøm-aksjon. Disse tømmer feltet i ett klikk.
+  $("#edit-scheduled-clear").addEventListener("click", () => {
+    $("#edit-scheduled").value = "";
+  });
+  $("#edit-published-clear").addEventListener("click", () => {
+    $("#edit-published").value = "";
+  });
+
   $("#edit-form").addEventListener("submit", (e) => {
     e.preventDefault();
     const id = $("#edit-id").value;

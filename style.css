@@ -361,6 +361,22 @@ textarea { resize: vertical; font-family: inherit; }
   color: var(--text);
 }
 
+/* Dato-input med tøm-knapp ved siden av */
+.date-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.date-input-wrap input[type="date"] {
+  flex: 1;
+}
+.date-clear-btn {
+  white-space: nowrap;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.date-clear-btn:hover { color: #d97706; }
+
 /* Verktøy-knapper i Pipeline-header */
 .pipeline-tools {
   margin-top: 0.5rem;
