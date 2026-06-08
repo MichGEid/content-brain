@@ -290,6 +290,92 @@
     renderPipeline();
   });
 
+  // ----------------------------- REMINDER POPUP -----------------------------
+
+  /**
+   * Vis pop-up reminder ved app-load hvis det er planlagte poster
+   * innen 2 dager. Snoozes per dag via localStorage så Michel ikke får
+   * samme popup hver gang han bytter tab.
+   */
+  function maybeShowReminderPopup() {
+    const today = new Date().toISOString().slice(0, 10);
+    let snoozed = "";
+    try { snoozed = localStorage.getItem("contentBrain.reminderSnoozedDate") || ""; } catch (e) {}
+    if (snoozed === today) return; // allerede dismissed i dag
+
+    const upcoming = state.posts
+      .filter(p => p.scheduledFor && (p.status === "ready" || p.status === "scheduled"))
+      .map(p => ({ ...p, daysUntil: daysFromNow(p.scheduledFor) }))
+      .filter(p => p.daysUntil !== null && p.daysUntil >= 0 && p.daysUntil <= 2)
+      .sort((a, b) => a.daysUntil - b.daysUntil);
+
+    if (!upcoming.length) return;
+
+    const body = $("#reminder-modal-body");
+    if (!body) return;
+    body.innerHTML = `
+      <p class="reminder-modal-lead">
+        ${upcoming.length === 1
+          ? "Du har <strong>1 innlegg</strong> som skal publiseres snart:"
+          : `Du har <strong>${upcoming.length} innlegg</strong> som skal publiseres snart:`}
+      </p>
+      <ul class="reminder-modal-list">
+        ${upcoming.map(p => {
+          const whenText = p.daysUntil === 0
+            ? "<strong>i dag</strong>"
+            : p.daysUntil === 1
+            ? "<strong>i morgen</strong>"
+            : `om ${p.daysUntil} dager`;
+          return `
+            <li>
+              <div class="reminder-modal-when">${whenText} — ${fmtDate(p.scheduledFor)}</div>
+              <div class="reminder-modal-title">${pillarBadge(p.pillar)} ${escapeHtml(p.title || "(uten tittel)")}</div>
+              ${p.body ? `<div class="reminder-modal-snippet muted small">${escapeHtml(p.body.slice(0, 120))}${p.body.length > 120 ? "…" : ""}</div>` : ""}
+              <button class="linkbtn reminder-modal-jump" data-id="${p.id}">Vis post →</button>
+            </li>
+          `;
+        }).join("")}
+      </ul>
+    `;
+    const backdrop = $("#reminder-modal-backdrop");
+    if (backdrop) backdrop.hidden = false;
+
+    // Bind jump
+    body.querySelectorAll(".reminder-modal-jump").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.id;
+        closeReminderPopup();
+        activateTab("pipeline");
+        setTimeout(() => {
+          const card = $(`.card[data-id="${id}"]`);
+          if (card) {
+            card.scrollIntoView({ behavior: "smooth", block: "center" });
+            card.style.outline = "2px solid #6366f1";
+            setTimeout(() => { card.style.outline = ""; }, 2000);
+          }
+        }, 150);
+      });
+    });
+  }
+
+  function closeReminderPopup() {
+    const backdrop = $("#reminder-modal-backdrop");
+    if (backdrop) backdrop.hidden = true;
+  }
+
+  function snoozeReminderForToday() {
+    const today = new Date().toISOString().slice(0, 10);
+    try { localStorage.setItem("contentBrain.reminderSnoozedDate", today); } catch (e) {}
+    closeReminderPopup();
+  }
+
+  $("#reminder-modal-close")?.addEventListener("click", closeReminderPopup);
+  $("#reminder-modal-ok")?.addEventListener("click", closeReminderPopup);
+  $("#reminder-modal-snooze")?.addEventListener("click", snoozeReminderForToday);
+  $("#reminder-modal-backdrop")?.addEventListener("click", e => {
+    if (e.target.id === "reminder-modal-backdrop") closeReminderPopup();
+  });
+
   /**
    * Sjekk planlagte poster og vis banner hvis noen skal publiseres
    * innen 2 dager. Banneret er klikkbar — scroller til posten.
@@ -1260,5 +1346,8 @@
 
   // First paint
   activateTab("capture");
+
+  // Sjekk om reminder-pop-up skal vises (planlagte poster innen 2 dager)
+  setTimeout(maybeShowReminderPopup, 300);
 
 })();

@@ -230,6 +230,21 @@
 
   </main>
 
+  <!-- Reminder popup på app-load når posts er nær publisering -->
+  <div class="modal-backdrop" id="reminder-modal-backdrop" hidden>
+    <div class="modal reminder-modal" role="dialog" aria-modal="true">
+      <header>
+        <h3>📅 Påminnelse</h3>
+        <button class="iconbtn" id="reminder-modal-close" aria-label="Lukk">×</button>
+      </header>
+      <div class="reminder-modal-body" id="reminder-modal-body"></div>
+      <footer class="reminder-modal-footer">
+        <button class="linkbtn" id="reminder-modal-snooze">Skjul i dag</button>
+        <button class="primary" id="reminder-modal-ok">Forstått</button>
+      </footer>
+    </div>
+  </div>
+
   <!-- Edit modal -->
   <div class="modal-backdrop" id="modal-backdrop" hidden>
     <div class="modal" role="dialog" aria-modal="true">

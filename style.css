@@ -361,6 +361,58 @@ textarea { resize: vertical; font-family: inherit; }
   color: var(--text);
 }
 
+/* Reminder pop-up som dukker opp ved app-load */
+.reminder-modal {
+  max-width: 540px;
+}
+.reminder-modal-body {
+  padding: 0.5rem 0;
+}
+.reminder-modal-lead {
+  margin: 0 0 0.8rem;
+  font-size: 1rem;
+}
+.reminder-modal-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.reminder-modal-list li {
+  padding: 0.7rem 0.9rem;
+  margin-bottom: 0.5rem;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.reminder-modal-when {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 0.3rem;
+}
+.reminder-modal-title {
+  font-size: 0.95rem;
+  font-weight: 500;
+  margin-bottom: 0.3rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.reminder-modal-snippet {
+  margin-bottom: 0.4rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.reminder-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--border);
+  margin-top: 0.5rem;
+}
+
 /* Dato-input med tøm-knapp ved siden av */
 .date-input-wrap {
   display: flex;
