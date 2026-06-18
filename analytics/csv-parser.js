@@ -228,9 +228,13 @@
         likes,
         comments,
         shares,
-        // LinkedIns standard dataeksport gir ikke profilvisninger per post —
-        // feltet fylles manuelt i metrics-tabellen. Default 0 for konsistent shape.
+        // LinkedIns standard dataeksport gir ikke saves/sends/profilvisninger/
+        // followers-gained per post — disse fylles manuelt fra LinkedIns
+        // post-analytics. Default 0 for konsistent shape.
+        saves: 0,
+        sends: 0,
         profileViews: 0,
+        followersGained: 0,
         engagements,
         engagementRate: impressions > 0 ? engagements / impressions : 0,
       };

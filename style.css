@@ -1968,24 +1968,29 @@ textarea { resize: vertical; font-family: inherit; }
 }
 
 /* Manuell metric-entry tabell */
+/* Mange metrikk-kolonner (visn/likes/komm/shares/saves/sends/profilv/følg/
+   sum/score) gjør tabellen bred. Horisontal scroll som sikkerhetsnett så
+   den aldri klemmes/klippes mot kortkanten på smalere skjermer. */
+#analytics-metrics-table { overflow-x: auto; }
 .analytics-metrics-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.86rem;
+  font-size: 0.84rem;
 }
 .analytics-metrics-table th,
 .analytics-metrics-table td {
   text-align: left;
-  padding: 0.5rem 0.55rem;
+  padding: 0.42rem 0.4rem;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
 .analytics-metrics-table th {
   color: var(--text-muted);
   font-weight: 500;
-  font-size: 0.74rem;
+  font-size: 0.7rem;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
   background: var(--bg-soft);
   position: sticky;
   top: 0;
@@ -1995,7 +2000,7 @@ textarea { resize: vertical; font-family: inherit; }
 .analytics-metrics-table td.num { text-align: right; }
 .analytics-metrics-table tbody tr:hover { background: var(--bg-hover); }
 .metrics-content {
-  max-width: 380px;
+  max-width: 260px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2007,9 +2012,9 @@ textarea { resize: vertical; font-family: inherit; }
 }
 .metrics-link:hover { text-decoration: underline; }
 .metrics-input {
-  width: 70px;
-  padding: 0.25rem 0.4rem;
-  font-size: 0.85rem;
+  width: 48px;
+  padding: 0.2rem 0.3rem;
+  font-size: 0.82rem;
   text-align: right;
 }
 .metrics-input:focus {
@@ -2017,7 +2022,11 @@ textarea { resize: vertical; font-family: inherit; }
   outline: none;
 }
 .metrics-sum {
-  font-weight: 600;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.metrics-score {
+  font-weight: 700;
   color: var(--text);
   font-variant-numeric: tabular-nums;
 }

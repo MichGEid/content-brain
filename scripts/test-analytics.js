@@ -634,10 +634,24 @@ test("pillarPerformance vsAll-utregning", () => {
 
 console.log("\n— vektet scoring (reach × resonans) —");
 
-test("weightedEngagements: like×1 + komm×3 + repost×5", () => {
-  // PhD-innlegget: 122 likes, 12 kommentarer, 8 reposts
+test("weightedEngagements: like×1 + komm×3 + repost×5 (uten saves/sends)", () => {
+  // PhD-innlegget før saves/sends: 122 likes, 12 kommentarer, 8 reposts
   const m = { likes: 122, comments: 12, shares: 8 };
   assert.strictEqual(store.weightedEngagements(m), 122 + 36 + 40); // 198
+});
+
+test("weightedEngagements: save×4 + send×6 inkludert i scoren", () => {
+  // PhD-innlegget komplett: + 47 saves + 4 sends
+  const m = { likes: 122, comments: 12, shares: 8, saves: 47, sends: 4 };
+  assert.strictEqual(store.weightedEngagements(m), 198 + 47 * 4 + 4 * 6); // 198+188+24 = 410
+});
+
+test("ENGAGEMENT_WEIGHTS: stigende intensjon like<komm<save<repost<send", () => {
+  const w = store.ENGAGEMENT_WEIGHTS;
+  assert.ok(w.likes < w.comments);
+  assert.ok(w.comments < w.saves);
+  assert.ok(w.saves < w.shares);
+  assert.ok(w.shares < w.sends);
 });
 
 test("weightedEngagements: tomt/manglende felt gir 0", () => {
@@ -692,7 +706,11 @@ test("syncPublishedPostsToMetrics: ny rad får profileViews-felt", () => {
   });
   store.syncPublishedPostsToMetrics(st, getCb, parser);
   assert.strictEqual(st.postMetrics.length, 1);
-  assert.strictEqual(st.postMetrics[0].profileViews, 0);
+  const row = st.postMetrics[0];
+  assert.strictEqual(row.profileViews, 0);
+  assert.strictEqual(row.saves, 0);
+  assert.strictEqual(row.sends, 0);
+  assert.strictEqual(row.followersGained, 0);
 });
 
 console.log(`\n${passed} passed · ${failed} failed`);

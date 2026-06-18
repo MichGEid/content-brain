@@ -1,5 +1,39 @@
 # Changelog
 
+## v0.18 (2026-06-18) — Saves, sends, followers + kompakt tabell
+
+Oppfølger til v0.17, utløst av at Michel sammenlignet dashboardet mot
+LinkedINs egne post-analytics. LinkedIn teller selv saves + sends som
+"social engagements" (PhD-posten: 122+12+8+47+4 = 193), så v0.17 undertelte.
+
+### Saves + sends inn i scoren
+
+- `ENGAGEMENT_WEIGHTS` utvidet til stigende intensjon: like×1, komm×3,
+  **save×4**, repost×5, **send×6**. Save = "kommer tilbake til dette",
+  send = privat person-til-person-anbefaling (høyest verdi).
+- PhD-postens vektede score går fra 198 → 410 når saves (47) og sends (4)
+  fylles inn — samme regel for alle poster, så rangeringen er rettferdig.
+
+### Followers gained som utkomme-felt
+
+- Nytt manuelt felt `followersGained` per innlegg — direkte audience-vekst
+  attribuert til posten. Spores ved siden av `profileViews`, IKKE i
+  engasjements-vekten (det er et utkomme, ikke en handling).
+
+### Kompakt metrics-tabell (UI-fiks)
+
+- Tabellen vokste til 12 kolonner og klemte mot kortkanten. Smalere
+  input-felt (70→48px), tettere padding, `overflow-x: auto` som
+  sikkerhetsnett, nowrap-headere. SUM dempet, SCORE fremhevet — så det er
+  tydelig hvilket tall som er hovedscoren.
+- Nye input-kolonner: Saves, Sends, Profilv., Følg. Modal og selector/sort
+  utvidet tilsvarende.
+
+### Tester
+
+- +2 unit-tester (save×4/send×6-score + vekt-rekkefølge), 69 i
+  analytics-suiten, alle grønne. Bundle bygger rent.
+
 ## v0.17 (2026-06-18) — Vektet scoring + reach × resonans
 
 Utløst av at PhD-innlegget gikk viralt: 60 682 visninger, 142 rå

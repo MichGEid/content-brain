@@ -145,6 +145,7 @@
                 <option value="impressions">Visninger (reach)</option>
                 <option value="engagements">Engasjement (sum)</option>
                 <option value="profileViews">Profilvisninger</option>
+                <option value="followersGained">Nye følgere</option>
                 <option value="likes">Likes</option>
                 <option value="comments">Kommentarer</option>
               </select>
@@ -277,6 +278,7 @@
                   <option value="engagement-desc">Engasjement høyt → lavt</option>
                   <option value="impressions-desc">Visninger høyt → lavt</option>
                   <option value="profileviews-desc">Profilvisninger høyt → lavt</option>
+                  <option value="followers-desc">Nye følgere høyt → lavt</option>
                   <option value="likes-desc">Likes høyt → lavt</option>
                   <option value="comments-desc">Kommentarer høyt → lavt</option>
                   <option value="shares-desc">Shares høyt → lavt</option>
@@ -481,8 +483,20 @@
           <div class="post-modal-metric-lbl">Shares</div>
         </div>
         <div class="post-modal-metric">
+          <div class="post-modal-metric-num">${m.saves || 0}</div>
+          <div class="post-modal-metric-lbl">Saves</div>
+        </div>
+        <div class="post-modal-metric">
+          <div class="post-modal-metric-num">${m.sends || 0}</div>
+          <div class="post-modal-metric-lbl">Sends</div>
+        </div>
+        <div class="post-modal-metric">
           <div class="post-modal-metric-num">${m.profileViews || 0}</div>
           <div class="post-modal-metric-lbl">Profilvisninger</div>
+        </div>
+        <div class="post-modal-metric">
+          <div class="post-modal-metric-num">${m.followersGained || 0}</div>
+          <div class="post-modal-metric-lbl">Nye følgere</div>
         </div>
         <div class="post-modal-metric post-modal-metric-total">
           <div class="post-modal-metric-num">${weightedScore}</div>
@@ -650,7 +664,10 @@
       return {
         ...m,
         pillar,
+        saves: m.saves || 0,
+        sends: m.sends || 0,
         profileViews: m.profileViews || 0,
+        followersGained: m.followersGained || 0,
         weightedEngagements: we,
         weightedRate: imp > 0 ? we / imp : 0,
       };
@@ -853,6 +870,7 @@
     else if (ui.metricsSort === "engagement-desc")    metrics.sort((a, b) => (b.engagements || 0) - (a.engagements || 0));
     else if (ui.metricsSort === "impressions-desc")   metrics.sort((a, b) => (b.impressions || 0) - (a.impressions || 0));
     else if (ui.metricsSort === "profileviews-desc")  metrics.sort((a, b) => (b.profileViews || 0) - (a.profileViews || 0));
+    else if (ui.metricsSort === "followers-desc")     metrics.sort((a, b) => (b.followersGained || 0) - (a.followersGained || 0));
     else if (ui.metricsSort === "likes-desc")         metrics.sort((a, b) => (b.likes || 0) - (a.likes || 0));
     else if (ui.metricsSort === "comments-desc")      metrics.sort((a, b) => (b.comments || 0) - (a.comments || 0));
     else if (ui.metricsSort === "shares-desc")        metrics.sort((a, b) => (b.shares || 0) - (a.shares || 0));
@@ -889,9 +907,12 @@
             <th class="num">Likes</th>
             <th class="num">Komm.</th>
             <th class="num">Shares</th>
-            <th class="num" title="Profilvisninger — fylles manuelt fra LinkedIn-appen">Profilv.</th>
+            <th class="num" title="Saves / bokmerker — fra LinkedIns post-analytics">Saves</th>
+            <th class="num" title="Sends — DM-delinger, fra LinkedIns post-analytics">Sends</th>
+            <th class="num" title="Profilvisninger fra denne posten — manuelt">Profilv.</th>
+            <th class="num" title="Nye følgere fra denne posten — manuelt">Følg.</th>
             <th class="num" title="Rå sum: likes + komm + shares">Sum</th>
-            <th class="num" title="Vektet score: like×1 + komm×3 + repost×5">Score</th>
+            <th class="num" title="Vektet score: like×1 + komm×3 + save×4 + repost×5 + send×6">Score</th>
             <th></th>
           </tr>
         </thead>
@@ -911,7 +932,10 @@
               <td class="num"><input type="number" min="0" class="metrics-input" data-field="likes" value="${m.likes || ""}" placeholder="0"/></td>
               <td class="num"><input type="number" min="0" class="metrics-input" data-field="comments" value="${m.comments || ""}" placeholder="0"/></td>
               <td class="num"><input type="number" min="0" class="metrics-input" data-field="shares" value="${m.shares || ""}" placeholder="0"/></td>
+              <td class="num"><input type="number" min="0" class="metrics-input" data-field="saves" value="${m.saves || ""}" placeholder="0"/></td>
+              <td class="num"><input type="number" min="0" class="metrics-input" data-field="sends" value="${m.sends || ""}" placeholder="0"/></td>
               <td class="num"><input type="number" min="0" class="metrics-input" data-field="profileViews" value="${m.profileViews || ""}" placeholder="0"/></td>
+              <td class="num"><input type="number" min="0" class="metrics-input" data-field="followersGained" value="${m.followersGained || ""}" placeholder="0"/></td>
               <td class="num metrics-sum">${m.engagements || 0}</td>
               <td class="num metrics-score" title="Vektet score">${m.weightedEngagements || 0}</td>
               <td>
@@ -971,7 +995,7 @@
     const metric = state.postMetrics.find(m => m.id === id);
     if (!metric) return;
 
-    const fields = ["impressions", "likes", "comments", "shares", "profileViews"];
+    const fields = ["impressions", "likes", "comments", "shares", "saves", "sends", "profileViews", "followersGained"];
     let changed = false;
     fields.forEach(f => {
       const el = row.querySelector(`.metrics-input[data-field="${f}"]`);

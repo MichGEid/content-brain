@@ -8,7 +8,8 @@
    Schema (lagret i localStorage["contentBrain.analytics"]):
      {
        postMetrics:   [{ id, date, content, url, contentFingerprint,
-                          impressions, likes, comments, shares, profileViews,
+                          impressions, likes, comments, shares, saves, sends,
+                          profileViews, followersGained,
                           engagements, engagementRate, linkedPostId }],
        connections:   [{ name, headline, company, connectedAt }],
        engagerTags:   { "<lowercase name>": "peer"|"recruiter"|"board"|"prospect"|"other" },
@@ -27,15 +28,24 @@
   // Rå engasjement (likes+comments+shares) likestiller en "tommel opp"
   // med en kommentar og en repost. Det gjør at scoringen ikke skiller
   // overflate-reaksjoner fra ekte samtale og amplifisering. Vi vekter
-  // derfor etter handlingsdybde: en repost er sterkest spredning, en
-  // kommentar er ekte samtale, en like er billigst signal.
-  const ENGAGEMENT_WEIGHTS = { likes: 1, comments: 3, shares: 5 };
+  // derfor etter handlingsdybde, stigende intensjon:
+  //   like ×1    — billigst signal
+  //   komm ×3    — ekte samtale
+  //   save ×4    — "jeg vil komme tilbake til dette" (sterk intensjon)
+  //   repost ×5  — offentlig spredning
+  //   send ×6    — privat person-til-person-anbefaling (høyest verdi)
+  // NB: LinkedIn teller selv saves+sends som "social engagements", så uten
+  // disse undertelte vi. followersGained er IKKE her — det er en utkomme-
+  // metrikk (som profileViews), ikke en engasjements-handling.
+  const ENGAGEMENT_WEIGHTS = { likes: 1, comments: 3, saves: 4, shares: 5, sends: 6 };
 
   function weightedEngagements(m) {
     if (!m) return 0;
     return (m.likes || 0)    * ENGAGEMENT_WEIGHTS.likes
          + (m.comments || 0) * ENGAGEMENT_WEIGHTS.comments
-         + (m.shares || 0)   * ENGAGEMENT_WEIGHTS.shares;
+         + (m.saves || 0)    * ENGAGEMENT_WEIGHTS.saves
+         + (m.shares || 0)   * ENGAGEMENT_WEIGHTS.shares
+         + (m.sends || 0)    * ENGAGEMENT_WEIGHTS.sends;
   }
 
   // Resonans = vektet engasjement per visning. Lar et viralt innlegg med
@@ -244,7 +254,10 @@
         likes: 0,
         comments: 0,
         shares: 0,
+        saves: 0,
+        sends: 0,
         profileViews: 0,
+        followersGained: 0,
         engagements: 0,
         engagementRate: 0,
         linkedPostId: p.id,
