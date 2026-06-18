@@ -170,6 +170,7 @@
               <span class="analytics-card-chevron">▾</span> Topp innlegg
             </h3>
             <div class="analytics-card-body">
+              <p class="muted small">Rangert på vektet score (like×1, komm×3, save×4, repost×5, send×6) — ikke likes alene. Score fanger dybde og intensjon, ikke bare rekkevidde.</p>
               <div id="analytics-chart-engagement"></div>
             </div>
           </div>
@@ -713,8 +714,11 @@
     const metrics = filterByDateRange(allMetrics);
     const excludedCount = fullList.filter(m => m.excluded).length;
 
+    // Topp innlegg rangeres ALLTID på vektet score — det er den meningsfulle
+    // "beste innlegg"-rangeringen (likes alene favoriserer reach/gratulasjons-
+    // reflekser). Uavhengig av Metric-nedtrekksmenyen, som styrer de andre grafene.
     dashboard.renderEngagementBar("#analytics-chart-engagement", metrics, {
-      topN: ui.topN, metric: ui.metric,
+      topN: ui.topN, metric: "weightedEngagements",
     });
     dashboard.renderTrendLine("#analytics-chart-trend", metrics, {
       metric: ui.metric,
@@ -801,8 +805,9 @@
         });
       }
 
-      // Legg til "Vis mer" / "Vis færre"-knapp under SVG-en
-      const allMatching = metrics.filter(m => (m[ui.metric] || 0) > 0).length;
+      // Legg til "Vis mer" / "Vis færre"-knapp under SVG-en.
+      // Teller på samme metrikk som Topp innlegg rangeres på (vektet score).
+      const allMatching = metrics.filter(m => (m.weightedEngagements || 0) > 0).length;
       if (!barChart.querySelector(".analytics-show-more-row")) {
         const row = document.createElement("div");
         row.className = "analytics-show-more-row";
