@@ -16,7 +16,9 @@
   // Lokal UI-state. Persisteres i localStorage så valg overlever reload.
   const UI_STATE_KEY = "contentBrain.analytics.ui";
   const defaultUi = () => ({
-    metric: "weightedEngagements", // weightedEngagements | weightedRate | impressions | engagements | profileViews | likes | comments
+    metric: "weightedEngagements", // (legacy, beholdt for bakoverkompat)
+    trendMetric: "weightedEngagements",  // metrikk for "Trend over tid"
+    pillarMetric: "weightedEngagements", // metrikk for "Per pilar (snitt)"
     topN: 10,
     catFilter: null,             // null | "peer" | "recruiter" | "board" | "prospect" | "other"
     subTab: "overview",          // overview | engagers | patterns | metrics | import
@@ -33,6 +35,23 @@
   } catch (e) {}
   function saveUi() {
     try { localStorage.setItem(UI_STATE_KEY, JSON.stringify(ui)); } catch (e) {}
+  }
+
+  // Felles metrikk-valg for graf-nedtrekksmenyene.
+  const METRIC_CHOICES = [
+    ["weightedEngagements", "Score (vektet)"],
+    ["weightedRate", "Resonans (rate)"],
+    ["impressions", "Visninger (reach)"],
+    ["engagements", "Engasjement (sum)"],
+    ["profileViews", "Profilvisninger"],
+    ["followersGained", "Nye følgere"],
+    ["likes", "Likes"],
+    ["comments", "Kommentarer"],
+  ];
+  function metricOptions(selected) {
+    return METRIC_CHOICES.map(([val, label]) =>
+      `<option value="${val}"${val === selected ? " selected" : ""}>${label}</option>`
+    ).join("");
   }
 
   function filterByDateRange(metrics) {
@@ -138,19 +157,6 @@
         <section class="analytics-sub" data-sub="overview">
           <div class="analytics-toolbar">
             <label>
-              <span>Metric</span>
-              <select id="analytics-metric">
-                <option value="weightedEngagements">Score (vektet)</option>
-                <option value="weightedRate">Resonans (rate)</option>
-                <option value="impressions">Visninger (reach)</option>
-                <option value="engagements">Engasjement (sum)</option>
-                <option value="profileViews">Profilvisninger</option>
-                <option value="followersGained">Nye følgere</option>
-                <option value="likes">Likes</option>
-                <option value="comments">Kommentarer</option>
-              </select>
-            </label>
-            <label>
               <span>Periode</span>
               <select id="analytics-date-range">
                 <option value="7d">Siste 7 dager</option>
@@ -190,6 +196,10 @@
               <span class="analytics-card-chevron">▾</span> Trend over tid
             </h3>
             <div class="analytics-card-body">
+              <label class="analytics-chart-metric">
+                <span>Vis</span>
+                <select id="analytics-trend-metric">${metricOptions(ui.trendMetric)}</select>
+              </label>
               <div id="analytics-chart-trend"></div>
             </div>
           </div>
@@ -199,6 +209,10 @@
               <span class="analytics-card-chevron">▾</span> Per pilar (snitt)
             </h3>
             <div class="analytics-card-body">
+              <label class="analytics-chart-metric">
+                <span>Vis</span>
+                <select id="analytics-pillar-metric">${metricOptions(ui.pillarMetric)}</select>
+              </label>
               <div id="analytics-chart-pillar"></div>
             </div>
           </div>
@@ -358,11 +372,21 @@
     bindImport();
 
     // Bind toolbar
-    const metricSel = document.getElementById("analytics-metric");
-    if (metricSel) {
-      metricSel.value = ui.metric;
-      metricSel.addEventListener("change", () => {
-        ui.metric = metricSel.value;
+    // Per-graf metrikk-velgere (Trend + Per pilar). Topp innlegg er låst til score.
+    const trendSel = document.getElementById("analytics-trend-metric");
+    if (trendSel) {
+      trendSel.value = ui.trendMetric;
+      trendSel.addEventListener("change", () => {
+        ui.trendMetric = trendSel.value;
+        saveUi();
+        renderOverview();
+      });
+    }
+    const pillarSel = document.getElementById("analytics-pillar-metric");
+    if (pillarSel) {
+      pillarSel.value = ui.pillarMetric;
+      pillarSel.addEventListener("change", () => {
+        ui.pillarMetric = pillarSel.value;
         saveUi();
         renderOverview();
       });
@@ -721,10 +745,10 @@
       topN: ui.topN, metric: "weightedEngagements",
     });
     dashboard.renderTrendLine("#analytics-chart-trend", metrics, {
-      metric: ui.metric,
+      metric: ui.trendMetric,
     });
     dashboard.renderPillarBars("#analytics-chart-pillar", metrics, {
-      metric: ui.metric,
+      metric: ui.pillarMetric,
     });
     dashboard.renderReachResonance("#analytics-chart-reachres", metrics, {});
 

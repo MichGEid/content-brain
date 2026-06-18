@@ -1500,6 +1500,20 @@ textarea { resize: vertical; font-family: inherit; }
 }
 .analytics-card h3 { margin-bottom: 0.6rem; }
 
+/* Per-graf metrikk-velger (Trend, Per pilar) */
+.analytics-chart-metric {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 0.6rem;
+}
+.analytics-chart-metric select {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.85rem;
+}
+
 .analytics-svg {
   width: 100%;
   height: auto;
