@@ -1974,6 +1974,7 @@ textarea { resize: vertical; font-family: inherit; }
 #analytics-metrics-table { overflow-x: auto; }
 .analytics-metrics-table {
   width: 100%;
+  min-width: 920px;
   border-collapse: collapse;
   font-size: 0.84rem;
 }
@@ -2012,11 +2013,13 @@ textarea { resize: vertical; font-family: inherit; }
 }
 .metrics-link:hover { text-decoration: underline; }
 .metrics-input {
-  width: 48px;
+  width: 56px;
   padding: 0.2rem 0.3rem;
   font-size: 0.82rem;
   text-align: right;
 }
+/* Visninger kan ha 4–6 sifre — gi den ekstra plass så tallet ikke klippes */
+.metrics-input[data-field="impressions"] { width: 74px; }
 .metrics-input:focus {
   border-color: var(--accent);
   outline: none;

@@ -161,6 +161,7 @@
               </select>
             </label>
             <button class="linkbtn" id="analytics-link-pipeline" title="Match metrics mot Pipeline-poster så pilar-info propagerer">🔗 Link til Pipeline</button>
+            <button class="linkbtn" id="analytics-refresh" title="Tegn grafene på nytt med de nyeste tallene — uten å laste siden på nytt">🔄 Oppdater grafer</button>
             <span class="muted small" id="analytics-summary"></span>
           </div>
 
@@ -377,6 +378,17 @@
 
     const linkBtn = document.getElementById("analytics-link-pipeline");
     if (linkBtn) linkBtn.addEventListener("click", relinkToPipeline);
+
+    // Manuell "Oppdater grafer": les state på nytt fra storage og tegn alt om,
+    // uten en full nettleser-reload (som ville trigget StaticCrypt-innlogging).
+    const refreshBtn = document.getElementById("analytics-refresh");
+    if (refreshBtn) refreshBtn.addEventListener("click", () => {
+      refreshCharts();
+      const old = refreshBtn.textContent;
+      refreshBtn.textContent = "✓ Oppdatert";
+      refreshBtn.disabled = true;
+      setTimeout(() => { refreshBtn.textContent = old; refreshBtn.disabled = false; }, 1200);
+    });
 
     // Cat filter chips
     panel.querySelectorAll("#analytics-cat-filter .chip").forEach(c => {
@@ -672,6 +684,23 @@
         weightedRate: imp > 0 ? we / imp : 0,
       };
     });
+  }
+
+  // Tegn alle grafer/visninger på nytt fra de nyeste tallene i localStorage.
+  // Brukes av "🔄 Oppdater grafer"-knappen og etter manuell metric-entry, så
+  // grafene følger med uten en full nettleser-reload (som ville logget brukeren
+  // ut via StaticCrypt).
+  function refreshCharts() {
+    const { store } = getStores();
+    // Les state på nytt fra storage i tilfelle noe ble endret et annet sted.
+    if (store && typeof store.load === "function") {
+      state = store.load();
+    }
+    syncPipelinePublishedToMetrics({ silent: true });
+    renderInsights();
+    renderOverview();
+    renderEngagers();
+    renderPatterns();
   }
 
   // ---------- overview ----------
@@ -1031,6 +1060,11 @@
     }
 
     store.save(state);
+
+    // Hold Oversikt-grafene ferske: insights + charts re-rendres i bakgrunnen
+    // (DOM-en for andre subtabs er hidden, men oppdatert når brukeren bytter).
+    renderInsights();
+    renderOverview();
   }
 
   // ---------- import ----------
