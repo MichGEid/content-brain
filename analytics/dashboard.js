@@ -566,6 +566,120 @@
     node.appendChild(svg);
   }
 
+  // ---------- reach × resonans (to-akse scatter) ----------
+  //
+  // x = visninger (reach), y = vektet rate (resonans/dybde), boblestørrelse
+  // = vektet engasjement, farge = pilar. Median-linjer deler i fire kvadranter
+  // så Michel ser FORSKJELLEN på "bredt men grunt", "smalt men dypt" og
+  // "traff begge" — innsikten som forsvinner i én sumscore. Reach-aksen er
+  // kvadratrot-skalert så ett viralt utbrudd ikke knuser resten visuelt.
+  function median(arr) {
+    if (!arr.length) return 0;
+    const s = arr.slice().sort((a, b) => a - b);
+    const mid = Math.floor(s.length / 2);
+    return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+  }
+
+  function renderReachResonance(container, metrics, opts = {}) {
+    const node = typeof container === "string" ? document.querySelector(container) : container;
+    if (!node) return;
+    clear(node);
+
+    // Trenger reach for å plotte — bare poster med visninger.
+    const data = metrics.filter(m => (m.impressions || 0) > 0);
+    if (data.length < 2) {
+      node.innerHTML = '<div class="analytics-empty">Trenger minst to innlegg med visninger. Fyll inn visninger i metrics-tabellen.</div>';
+      return;
+    }
+
+    const W = 700, H = 380;
+    const padL = 60, padR = 24, padT = 24, padB = 48;
+    const sqrt = v => Math.sqrt(Math.max(0, v));
+    const xMax = Math.max(1, ...data.map(d => sqrt(d.impressions || 0)));
+    const yMax = Math.max(0.0001, ...data.map(d => d.weightedRate || 0));
+    const weMax = Math.max(1, ...data.map(d => d.weightedEngagements || 0));
+
+    const xScale = v => padL + (sqrt(v) / xMax) * (W - padL - padR);
+    const yScale = v => H - padB - ((v || 0) / yMax) * (H - padT - padB);
+    const rScale = v => 4 + (Math.sqrt(Math.max(0, v)) / Math.sqrt(weMax)) * 16;
+
+    const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, class: "analytics-svg analytics-scatter" });
+
+    // y-grid + akse-etiketter (rate i %)
+    for (let i = 0; i <= 4; i++) {
+      const y = padT + (i / 4) * (H - padT - padB);
+      svg.appendChild(el("line", { x1: padL, x2: W - padR, y1: y, y2: y, class: "analytics-grid" }));
+      const v = yMax * (1 - i / 4);
+      svg.appendChild(el("text", {
+        x: padL - 8, y: y + 4, "text-anchor": "end", class: "analytics-axis-label",
+      }, (v * 100).toFixed(2) + "%"));
+    }
+
+    // x-akse-etiketter (faktiske visninger, tilbake-transformert fra sqrt)
+    for (let i = 0; i <= 4; i++) {
+      const frac = i / 4;
+      const realV = Math.pow(frac * xMax, 2);
+      const x = padL + frac * (W - padL - padR);
+      svg.appendChild(el("text", {
+        x, y: H - padB + 18, "text-anchor": "middle", class: "analytics-axis-label",
+      }, fmtNum(realV)));
+    }
+
+    // Median-linjer (kvadrant-deling)
+    const medImpr = median(data.map(d => d.impressions || 0));
+    const medRate = median(data.map(d => d.weightedRate || 0));
+    const mx = xScale(medImpr), my = yScale(medRate);
+    svg.appendChild(el("line", { x1: mx, x2: mx, y1: padT, y2: H - padB, class: "analytics-quadrant-line" }));
+    svg.appendChild(el("line", { x1: padL, x2: W - padR, y1: my, y2: my, class: "analytics-quadrant-line" }));
+
+    // Kvadrant-etiketter
+    const quad = (x, y, anchor, txt) => svg.appendChild(el("text", {
+      x, y, "text-anchor": anchor, class: "analytics-quadrant-label",
+    }, txt));
+    quad(W - padR - 4, padT + 12, "end", "Traff begge");
+    quad(padL + 4, padT + 12, "start", "Smalt, men dypt");
+    quad(W - padR - 4, H - padB - 6, "end", "Bredt, men grunt");
+    quad(padL + 4, H - padB - 6, "start", "Lav");
+
+    // Akse-titler
+    svg.appendChild(el("text", {
+      x: padL + (W - padL - padR) / 2, y: H - 8, "text-anchor": "middle", class: "analytics-axis-title",
+    }, "Reach (visninger) →"));
+    svg.appendChild(el("text", {
+      x: 16, y: padT + (H - padT - padB) / 2, "text-anchor": "middle", class: "analytics-axis-title",
+      transform: `rotate(-90 16 ${padT + (H - padT - padB) / 2})`,
+    }, "Resonans (vektet rate) →"));
+
+    // Bobler
+    data.forEach(d => {
+      const cx = xScale(d.impressions || 0);
+      const cy = yScale(d.weightedRate || 0);
+      const r = rScale(d.weightedEngagements || 0);
+      const dot = el("circle", {
+        cx, cy, r,
+        class: `analytics-bubble ${pillarClassFor(d)}`,
+        "data-metric-id": d.id || "",
+      });
+      dot.appendChild(el("title", {}, [
+        `${(d.content || d.title || "(uten tekst)").slice(0, 80)}\n` +
+        `${fmtNum(d.impressions || 0)} visninger · score ${fmtNum(d.weightedEngagements || 0)} · ` +
+        `resonans ${((d.weightedRate || 0) * 100).toFixed(2)}%` +
+        (d.profileViews ? ` · ${fmtNum(d.profileViews)} profilvisn.` : ""),
+      ]));
+      svg.appendChild(dot);
+    });
+
+    node.appendChild(svg);
+
+    // Klikk på boble → åpne post-modal
+    node.querySelectorAll("[data-metric-id]").forEach(dot => {
+      dot.addEventListener("click", () => {
+        const id = dot.getAttribute("data-metric-id");
+        if (id && window.Analytics?._openPostModal) window.Analytics._openPostModal(id);
+      });
+    });
+  }
+
   // ---------- export ----------
 
   const AnalyticsDashboard = {
@@ -576,6 +690,7 @@
     renderConnectionsTable,
     renderCategorySummary,
     renderNetworkGrowth,
+    renderReachResonance,
   };
 
   if (typeof window !== "undefined") window.AnalyticsDashboard = AnalyticsDashboard;

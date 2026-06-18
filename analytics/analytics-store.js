@@ -8,7 +8,7 @@
    Schema (lagret i localStorage["contentBrain.analytics"]):
      {
        postMetrics:   [{ id, date, content, url, contentFingerprint,
-                          impressions, likes, comments, shares,
+                          impressions, likes, comments, shares, profileViews,
                           engagements, engagementRate, linkedPostId }],
        connections:   [{ name, headline, company, connectedAt }],
        engagerTags:   { "<lowercase name>": "peer"|"recruiter"|"board"|"prospect"|"other" },
@@ -21,6 +21,30 @@
   "use strict";
 
   const STORAGE_KEY = "contentBrain.analytics";
+
+  // ---------- scoring: vektet engasjement ----------
+  //
+  // Rå engasjement (likes+comments+shares) likestiller en "tommel opp"
+  // med en kommentar og en repost. Det gjør at scoringen ikke skiller
+  // overflate-reaksjoner fra ekte samtale og amplifisering. Vi vekter
+  // derfor etter handlingsdybde: en repost er sterkest spredning, en
+  // kommentar er ekte samtale, en like er billigst signal.
+  const ENGAGEMENT_WEIGHTS = { likes: 1, comments: 3, shares: 5 };
+
+  function weightedEngagements(m) {
+    if (!m) return 0;
+    return (m.likes || 0)    * ENGAGEMENT_WEIGHTS.likes
+         + (m.comments || 0) * ENGAGEMENT_WEIGHTS.comments
+         + (m.shares || 0)   * ENGAGEMENT_WEIGHTS.shares;
+  }
+
+  // Resonans = vektet engasjement per visning. Lar et viralt innlegg med
+  // stor reach (lav rå rate) bli vurdert på dybden av responsen, ikke bare
+  // bredden. Returnerer 0 når impressions mangler.
+  function weightedRate(m) {
+    const imp = m && m.impressions ? m.impressions : 0;
+    return imp > 0 ? weightedEngagements(m) / imp : 0;
+  }
 
   function emptyState() {
     return {
@@ -220,6 +244,7 @@
         likes: 0,
         comments: 0,
         shares: 0,
+        profileViews: 0,
         engagements: 0,
         engagementRate: 0,
         linkedPostId: p.id,
@@ -284,6 +309,9 @@
 
   const AnalyticsStore = {
     STORAGE_KEY,
+    ENGAGEMENT_WEIGHTS,
+    weightedEngagements,
+    weightedRate,
     emptyState,
     load,
     save,

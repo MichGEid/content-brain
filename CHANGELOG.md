@@ -1,5 +1,49 @@
 # Changelog
 
+## v0.17 (2026-06-18) — Vektet scoring + reach × resonans
+
+Utløst av at PhD-innlegget gikk viralt: 60 682 visninger, 142 rå
+engasjementer, men bare 0,23 % rå rate — og profilvisninger hoppet fra
+~100 til ~580. Den gamle scoringen (rå sum likes+komm+shares) verken
+fanget reach eller skilte dybde fra overflate. Denne versjonen gjør
+scoringen flerdimensjonal uten å kunstig løfte enkeltinnlegg.
+
+### Vektet engasjement (ny default-score)
+
+- `weightedEngagements` = like×1 + komm×3 + repost×5. Premierer ekte
+  samtale og spredning over billige tomler. Vekter eksponert som
+  `AnalyticsStore.ENGAGEMENT_WEIGHTS`.
+- `weightedRate` = vektet engasjement / visninger = "resonans" (dybde
+  per visning). Lar et viralt innlegg vurderes på dybde, ikke bare bredde.
+- `getTopPerformers` og `getPillarPerformance` bruker nå
+  `weightedEngagements` som default-metrikk (feeder Ghostwriter-badges
+  og pilar-hint). Begge tar fortsatt `opts.metric` for andre dimensjoner.
+- Avledede felt beregnes on-the-fly i `enrichedMetrics()` — ingen
+  migrering av lagret data nødvendig.
+
+### Reach × resonans (to-akse-visning)
+
+- Ny vanilla-SVG scatter i `dashboard.js` (`renderReachResonance`):
+  x = visninger (reach, sqrt-skalert så virale utbrudd ikke knuser
+  resten), y = vektet rate (resonans), boblestørrelse = vektet score,
+  farge = pilar. Median-linjer deler i fire kvadranter ("traff begge",
+  "smalt men dypt", "bredt men grunt", "lav"). Bobler klikkbare → modal.
+- Nytt kort "Reach × resonans" på Oversikt-tab.
+
+### Profilvisninger som førsteklasses signal
+
+- Nytt manuelt felt `profileViews` per innlegg (LinkedIn-eksport gir det
+  ikke per post). Input-kolonne i metrics-tabellen, vist i post-modal,
+  sorterbart, backup-kompatibelt.
+
+### UI + tester
+
+- Metric-selector utvidet: Score (vektet), Resonans (rate), Visninger,
+  Engasjement, Profilvisninger, Likes, Kommentarer.
+- Metrics-tabell: ny Profilv.-input + Score-kolonne (vektet), 3 nye
+  sorteringsvalg (Score, Resonans, Profilvisninger).
+- +7 unit-tester (69 totalt grønne). Bundle bygger rent.
+
 ## v0.16 (2026-05-23) — Analytics-polishbølge
 
 Etter at Michel begynte å bruke Analytics i praksis dukket det opp en

@@ -632,5 +632,68 @@ test("pillarPerformance vsAll-utregning", () => {
   assert.ok(Math.abs(vsAll2 + 0.333) < 0.01);
 });
 
+console.log("\n— vektet scoring (reach × resonans) —");
+
+test("weightedEngagements: like×1 + komm×3 + repost×5", () => {
+  // PhD-innlegget: 122 likes, 12 kommentarer, 8 reposts
+  const m = { likes: 122, comments: 12, shares: 8 };
+  assert.strictEqual(store.weightedEngagements(m), 122 + 36 + 40); // 198
+});
+
+test("weightedEngagements: tomt/manglende felt gir 0", () => {
+  assert.strictEqual(store.weightedEngagements({}), 0);
+  assert.strictEqual(store.weightedEngagements(null), 0);
+});
+
+test("weightedRate: vektet engasjement / visninger", () => {
+  const m = { likes: 122, comments: 12, shares: 8, impressions: 60682 };
+  const expected = 198 / 60682;
+  assert.ok(Math.abs(store.weightedRate(m) - expected) < 1e-9);
+});
+
+test("weightedRate: 0 visninger gir 0 (ingen divisjon på null)", () => {
+  assert.strictEqual(store.weightedRate({ likes: 10, impressions: 0 }), 0);
+  assert.strictEqual(store.weightedRate({ likes: 10 }), 0);
+});
+
+test("vekting premierer dybde: viral-reach vs tett nettverk", () => {
+  // Viralt utbrudd: stor reach, mange likes men grunt. Tett treff: liten
+  // reach, men mange kommentarer/reposts. Vektet rate skal kunne skille dem.
+  const viral = { likes: 200, comments: 2, shares: 0, impressions: 60000 };
+  const tett  = { likes: 30, comments: 15, shares: 10, impressions: 1500 };
+  // Rå sum: viral 202 vs tett 55 — viral "vinner" på rått antall.
+  assert.ok((viral.likes + viral.comments + viral.shares) >
+            (tett.likes + tett.comments + tett.shares));
+  // Resonans (vektet rate): tett skal slå viral klart.
+  assert.ok(store.weightedRate(tett) > store.weightedRate(viral));
+});
+
+test("topPerformers: default sorterer på weightedEngagements", () => {
+  // Etterligner getTopPerformers' nye default-metrikk.
+  const metrics = [
+    { likes: 100, comments: 0, shares: 0 },  // weighted 100
+    { likes: 10, comments: 10, shares: 10 }, // weighted 10+30+50 = 90
+    { likes: 20, comments: 20, shares: 5 },  // weighted 20+60+25 = 105
+  ].map(m => ({ ...m, weightedEngagements: store.weightedEngagements(m) }));
+  const top = metrics.slice().sort((a, b) => b.weightedEngagements - a.weightedEngagements);
+  assert.strictEqual(top[0].weightedEngagements, 105);
+  assert.strictEqual(top[2].weightedEngagements, 90);
+});
+
+test("syncPublishedPostsToMetrics: ny rad får profileViews-felt", () => {
+  const st = store.emptyState();
+  const getCb = () => ({
+    posts: [{
+      id: "p1", status: "published",
+      publishedAt: "2026-06-01T09:00:00Z",
+      linkedinUrl: "https://linkedin.com/posts/p1",
+      title: "T", body: "Et publisert innlegg med litt tekst i seg",
+    }],
+  });
+  store.syncPublishedPostsToMetrics(st, getCb, parser);
+  assert.strictEqual(st.postMetrics.length, 1);
+  assert.strictEqual(st.postMetrics[0].profileViews, 0);
+});
+
 console.log(`\n${passed} passed · ${failed} failed`);
 process.exit(failed === 0 ? 0 : 1);

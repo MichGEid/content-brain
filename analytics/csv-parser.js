@@ -228,6 +228,9 @@
         likes,
         comments,
         shares,
+        // LinkedIns standard dataeksport gir ikke profilvisninger per post —
+        // feltet fylles manuelt i metrics-tabellen. Default 0 for konsistent shape.
+        profileViews: 0,
         engagements,
         engagementRate: impressions > 0 ? engagements / impressions : 0,
       };

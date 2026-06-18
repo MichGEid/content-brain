@@ -1,6 +1,6 @@
 # Status — Content Brain + Ghostwriter + Analytics
 
-Sist oppdatert 2026-05-23. Versjon: v0.16 med Analytics-polishbølge (drill-down, klikkbare elementer, Skjul/Vis igjen, duplikat-detektor, 0-engagement-håndtering).
+Sist oppdatert 2026-06-18. Versjon: v0.17 — vektet scoring + reach × resonans (weightedEngagements som ny default-score, to-akse scatter, profilvisninger som manuelt felt). Forrige: v0.16 Analytics-polishbølge (drill-down, klikkbare elementer, Skjul/Vis igjen, duplikat-detektor, 0-engagement-håndtering).
 
 ## Helhetlig status
 

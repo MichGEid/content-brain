@@ -16,7 +16,7 @@
   // Lokal UI-state. Persisteres i localStorage så valg overlever reload.
   const UI_STATE_KEY = "contentBrain.analytics.ui";
   const defaultUi = () => ({
-    metric: "engagements",       // engagements | impressions | likes | comments
+    metric: "weightedEngagements", // weightedEngagements | weightedRate | impressions | engagements | profileViews | likes | comments
     topN: 10,
     catFilter: null,             // null | "peer" | "recruiter" | "board" | "prospect" | "other"
     subTab: "overview",          // overview | engagers | patterns | metrics | import
@@ -140,8 +140,11 @@
             <label>
               <span>Metric</span>
               <select id="analytics-metric">
+                <option value="weightedEngagements">Score (vektet)</option>
+                <option value="weightedRate">Resonans (rate)</option>
+                <option value="impressions">Visninger (reach)</option>
                 <option value="engagements">Engasjement (sum)</option>
-                <option value="impressions">Visninger</option>
+                <option value="profileViews">Profilvisninger</option>
                 <option value="likes">Likes</option>
                 <option value="comments">Kommentarer</option>
               </select>
@@ -166,6 +169,16 @@
             </h3>
             <div class="analytics-card-body">
               <div id="analytics-chart-engagement"></div>
+            </div>
+          </div>
+
+          <div class="analytics-card" data-card-id="reach-resonance">
+            <h3 class="analytics-card-head" data-card-toggle="reach-resonance">
+              <span class="analytics-card-chevron">▾</span> Reach × resonans
+            </h3>
+            <div class="analytics-card-body">
+              <p class="muted small">Hvert innlegg plottet på reach (visninger) mot resonans (vektet rate). Boblestørrelse = vektet score. Median-linjene deler i fire: virale utbrudd havner nede til høyre, tette nettverks-treff oppe til venstre.</p>
+              <div id="analytics-chart-reachres"></div>
             </div>
           </div>
 
@@ -259,8 +272,11 @@
                 <select id="analytics-metrics-sort">
                   <option value="date-desc">Nyeste først</option>
                   <option value="date-asc">Eldste først</option>
+                  <option value="weighted-desc">Score (vektet) høyt → lavt</option>
+                  <option value="rate-desc">Resonans (rate) høyt → lavt</option>
                   <option value="engagement-desc">Engasjement høyt → lavt</option>
                   <option value="impressions-desc">Visninger høyt → lavt</option>
+                  <option value="profileviews-desc">Profilvisninger høyt → lavt</option>
                   <option value="likes-desc">Likes høyt → lavt</option>
                   <option value="comments-desc">Kommentarer høyt → lavt</option>
                   <option value="shares-desc">Shares høyt → lavt</option>
@@ -404,6 +420,10 @@
   function openPostModal(metricId) {
     const m = state.postMetrics.find(x => x.id === metricId);
     if (!m) return;
+    const { store } = getStores();
+    const weightedScore = store ? store.weightedEngagements(m) : 0;
+    const wr = store ? store.weightedRate(m) : 0;
+    const weightedRatePct = wr > 0 ? (wr * 100).toFixed(2) + "%" : "—";
     const cb = window.ContentBrain;
     const cbState = cb ? cb.getState() : null;
     let pillar = null, pipelineTitle = "", pipelineId = m.linkedPostId;
@@ -460,13 +480,21 @@
           <div class="post-modal-metric-num">${m.shares || 0}</div>
           <div class="post-modal-metric-lbl">Shares</div>
         </div>
+        <div class="post-modal-metric">
+          <div class="post-modal-metric-num">${m.profileViews || 0}</div>
+          <div class="post-modal-metric-lbl">Profilvisninger</div>
+        </div>
         <div class="post-modal-metric post-modal-metric-total">
-          <div class="post-modal-metric-num">${m.engagements || 0}</div>
-          <div class="post-modal-metric-lbl">Engasjement total</div>
+          <div class="post-modal-metric-num">${weightedScore}</div>
+          <div class="post-modal-metric-lbl">Score (vektet)</div>
         </div>
         <div class="post-modal-metric">
-          <div class="post-modal-metric-num">${m.engagementRate ? (m.engagementRate * 100).toFixed(1) + "%" : "—"}</div>
-          <div class="post-modal-metric-lbl">Engagement rate</div>
+          <div class="post-modal-metric-num">${m.engagements || 0}</div>
+          <div class="post-modal-metric-lbl">Engasjement (rå sum)</div>
+        </div>
+        <div class="post-modal-metric">
+          <div class="post-modal-metric-num">${weightedRatePct}</div>
+          <div class="post-modal-metric-lbl">Resonans (vektet rate)</div>
         </div>
       </div>
 
@@ -604,7 +632,7 @@
   // ---------- enrichment ----------
 
   function enrichedMetrics() {
-    const { cb } = getStores();
+    const { cb, store } = getStores();
     const cbState = cb ? cb.getState() : null;
     return state.postMetrics.map(m => {
       let pillar = null;
@@ -614,7 +642,18 @@
       }
       // Demo-data har _demoPillar som fallback hvis ingen Pipeline-match
       if (!pillar && m._demoPillar) pillar = m._demoPillar;
-      return { ...m, pillar };
+      // Avledede scoring-felt — beregnes on-the-fly så lagret data ikke
+      // trenger migrering. weightedEngagements er ny default-scoremetrikk;
+      // weightedRate er resonans (dybde per visning); profileViews er manuelt.
+      const we = store ? store.weightedEngagements(m) : (m.likes||0)+(m.comments||0)*3+(m.shares||0)*5;
+      const imp = m.impressions || 0;
+      return {
+        ...m,
+        pillar,
+        profileViews: m.profileViews || 0,
+        weightedEngagements: we,
+        weightedRate: imp > 0 ? we / imp : 0,
+      };
     });
   }
 
@@ -637,6 +676,7 @@
     dashboard.renderPillarBars("#analytics-chart-pillar", metrics, {
       metric: ui.metric,
     });
+    dashboard.renderReachResonance("#analytics-chart-reachres", metrics, {});
 
     // Bind klikk på hver bar-gruppe i Top innlegg-charten
     const barChart = document.getElementById("analytics-chart-engagement");
@@ -806,13 +846,16 @@
     else if (ui.metricsFilter === "has") metrics = metrics.filter(hasMetrics);
 
     // Sort
-    if (ui.metricsSort === "date-desc")             metrics.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
-    else if (ui.metricsSort === "date-asc")         metrics.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
-    else if (ui.metricsSort === "engagement-desc")  metrics.sort((a, b) => (b.engagements || 0) - (a.engagements || 0));
-    else if (ui.metricsSort === "impressions-desc") metrics.sort((a, b) => (b.impressions || 0) - (a.impressions || 0));
-    else if (ui.metricsSort === "likes-desc")       metrics.sort((a, b) => (b.likes || 0) - (a.likes || 0));
-    else if (ui.metricsSort === "comments-desc")    metrics.sort((a, b) => (b.comments || 0) - (a.comments || 0));
-    else if (ui.metricsSort === "shares-desc")      metrics.sort((a, b) => (b.shares || 0) - (a.shares || 0));
+    if (ui.metricsSort === "date-desc")               metrics.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+    else if (ui.metricsSort === "date-asc")           metrics.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+    else if (ui.metricsSort === "weighted-desc")      metrics.sort((a, b) => (b.weightedEngagements || 0) - (a.weightedEngagements || 0));
+    else if (ui.metricsSort === "rate-desc")          metrics.sort((a, b) => (b.weightedRate || 0) - (a.weightedRate || 0));
+    else if (ui.metricsSort === "engagement-desc")    metrics.sort((a, b) => (b.engagements || 0) - (a.engagements || 0));
+    else if (ui.metricsSort === "impressions-desc")   metrics.sort((a, b) => (b.impressions || 0) - (a.impressions || 0));
+    else if (ui.metricsSort === "profileviews-desc")  metrics.sort((a, b) => (b.profileViews || 0) - (a.profileViews || 0));
+    else if (ui.metricsSort === "likes-desc")         metrics.sort((a, b) => (b.likes || 0) - (a.likes || 0));
+    else if (ui.metricsSort === "comments-desc")      metrics.sort((a, b) => (b.comments || 0) - (a.comments || 0));
+    else if (ui.metricsSort === "shares-desc")        metrics.sort((a, b) => (b.shares || 0) - (a.shares || 0));
 
     if (summary) {
       summary.textContent = `${withMetrics} av ${total} har metrikker · ${total - withMetrics} gjenstår`;
@@ -846,7 +889,9 @@
             <th class="num">Likes</th>
             <th class="num">Komm.</th>
             <th class="num">Shares</th>
-            <th class="num">Sum</th>
+            <th class="num" title="Profilvisninger — fylles manuelt fra LinkedIn-appen">Profilv.</th>
+            <th class="num" title="Rå sum: likes + komm + shares">Sum</th>
+            <th class="num" title="Vektet score: like×1 + komm×3 + repost×5">Score</th>
             <th></th>
           </tr>
         </thead>
@@ -866,7 +911,9 @@
               <td class="num"><input type="number" min="0" class="metrics-input" data-field="likes" value="${m.likes || ""}" placeholder="0"/></td>
               <td class="num"><input type="number" min="0" class="metrics-input" data-field="comments" value="${m.comments || ""}" placeholder="0"/></td>
               <td class="num"><input type="number" min="0" class="metrics-input" data-field="shares" value="${m.shares || ""}" placeholder="0"/></td>
+              <td class="num"><input type="number" min="0" class="metrics-input" data-field="profileViews" value="${m.profileViews || ""}" placeholder="0"/></td>
               <td class="num metrics-sum">${m.engagements || 0}</td>
+              <td class="num metrics-score" title="Vektet score">${m.weightedEngagements || 0}</td>
               <td>
                 <span class="metrics-status muted small"></span>
                 <label class="metrics-exclude-toggle" title="Ekskluder fra snitt og top-performers (f.eks. for outliers som skjevvrir analysen)">
@@ -924,11 +971,12 @@
     const metric = state.postMetrics.find(m => m.id === id);
     if (!metric) return;
 
-    const fields = ["impressions", "likes", "comments", "shares"];
+    const fields = ["impressions", "likes", "comments", "shares", "profileViews"];
     let changed = false;
     fields.forEach(f => {
       const el = row.querySelector(`.metrics-input[data-field="${f}"]`);
-      const v = el ? Number(el.value) || 0 : 0;
+      if (!el) return; // profileViews-input finnes alltid, men vær defensiv
+      const v = Number(el.value) || 0;
       if (metric[f] !== v) { metric[f] = v; changed = true; }
     });
     if (!changed) return;
@@ -937,9 +985,11 @@
     metric.engagements = (metric.likes || 0) + (metric.comments || 0) + (metric.shares || 0);
     metric.engagementRate = metric.impressions > 0 ? metric.engagements / metric.impressions : 0;
 
-    // Update sum-cell in UI
+    // Update sum-cell + vektet score-cell i UI
     const sumCell = row.querySelector(".metrics-sum");
     if (sumCell) sumCell.textContent = metric.engagements;
+    const scoreCell = row.querySelector(".metrics-score");
+    if (scoreCell) scoreCell.textContent = store.weightedEngagements(metric);
 
     // Skjul "Mangler tall"-badgen så snart tall er fylt inn
     const totalNow = (metric.impressions || 0) + (metric.likes || 0) + (metric.comments || 0) + (metric.shares || 0);
@@ -1102,12 +1152,14 @@
   // ---------- top-performers API (eksponeres til Ghostwriter) ----------
 
   /**
-   * Topp N innlegg for en gitt pilar, sortert på engasjement (sum likes+
-   * comments+shares) som default. Brukes av Ghostwriter Voice Profile
-   * for å vise hvilke faktiske innlegg som har truffet best.
+   * Topp N innlegg for en gitt pilar, sortert på vektet engasjement
+   * (like×1 + komm×3 + repost×5) som default — så dybde i responsen teller
+   * mer enn rå antall. Send opts.metric ("impressions" | "weightedRate" |
+   * "engagements" | "profileViews") for å score på en annen dimensjon.
+   * Brukes av Ghostwriter Voice Profile for å vise hvilke innlegg som traff.
    */
   function getTopPerformers(pillar, n = 3, opts = {}) {
-    const metric = opts.metric || "engagements";
+    const metric = opts.metric || "weightedEngagements";
     return enrichedMetrics()
       .filter(m => !m.excluded)
       .filter(m => !pillar || m.pillar === pillar)
@@ -1121,7 +1173,7 @@
    * for hver pilar. vsAll er +/- prosent vs gjennomsnitt av alle pilarer.
    */
   function getPillarPerformance(opts = {}) {
-    const metric = opts.metric || "engagements";
+    const metric = opts.metric || "weightedEngagements";
     const sinceDays = opts.sinceDays || 56; // 8 uker default
     const cutoff = Date.now() - sinceDays * 86400000;
 

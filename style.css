@@ -1623,6 +1623,18 @@ textarea { resize: vertical; font-family: inherit; }
 .analytics-bar.p-, .analytics-dot.p-, .analytics-pillar-fill.p- { fill: var(--text-muted); background: var(--text-muted); opacity: 0.5; }
 .analytics-dot        { stroke: var(--bg); stroke-width: 1.5; }
 
+/* Reach × resonans scatter */
+.analytics-bubble { stroke: var(--bg); stroke-width: 1.5; fill-opacity: 0.7; cursor: pointer; transition: fill-opacity 0.15s ease; }
+.analytics-bubble.p1 { fill: var(--p1); }
+.analytics-bubble.p2 { fill: var(--p2); }
+.analytics-bubble.p3 { fill: var(--p3); }
+.analytics-bubble.p4 { fill: var(--p4); }
+.analytics-bubble.p- { fill: var(--text-muted); fill-opacity: 0.45; }
+.analytics-bubble.analytics-dot-clickable:hover { fill-opacity: 1; }
+.analytics-quadrant-line  { stroke: var(--text-muted); stroke-width: 1; stroke-dasharray: 4 4; opacity: 0.5; }
+.analytics-quadrant-label { font-size: 10px; fill: var(--text-muted); opacity: 0.75; font-style: italic; }
+.analytics-axis-title     { font-size: 11px; fill: var(--text-muted); font-weight: 600; }
+
 /* Pillar breakdown rows */
 .analytics-pillar-row {
   display: grid;
